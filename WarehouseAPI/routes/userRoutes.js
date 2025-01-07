@@ -75,21 +75,31 @@ async function registerUser(req, res) {
       .json({ success: true, msg: 'User successfully created.' });
   } catch (err) {
     console.error('Error in registerUser:', err);
+
+    if (err.message === 'Password is invalid') {
+      return res
+        .status(400)
+        .json({ success: false, msg: 'Password does not meet strength requirements. At least 8 characters contain  letters, numbers, and special characters' });
+    }
+
     if (err.name === 'SequelizeUniqueConstraintError') {
       return res
         .status(400)
         .json({ success: false, msg: 'Username or userId already taken.' });
     }
+
     if (err.name === 'ValidationError') {
       return res
         .status(400)
         .json({ success: false, msg: err.message });
     }
+
     return res
       .status(500)
       .json({ success: false, msg: 'Internal server error.' });
   }
 }
+
 
 
 // 登录用户
