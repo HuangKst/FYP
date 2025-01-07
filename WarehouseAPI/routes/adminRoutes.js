@@ -12,7 +12,7 @@ router.get('/pending-users', authenticate, async (req, res) => {
     res.json({ success: true, users: pendingUsers });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, msg: '服务器内部错误' });
+    res.status(500).json({ success: false, msg: 'Server Error' });
   }
 });
 

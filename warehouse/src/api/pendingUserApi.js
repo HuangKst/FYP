@@ -7,7 +7,7 @@ export async function fetchPendingUsers() {
     throw new Error('Token is missing. Please log in first.');
   }
 
-  const response = await axios.get('http://localhost:8080/api/admin/pending-users', {
+  const response = await axios.get(`${process.env.REACT_APP_API_BASE_URL }/admin/pending-users`, {
     headers: {
       Authorization: `Bearer ${token}`, // 前端负责添加 "Bearer "
     },

@@ -23,7 +23,7 @@ export const AuthProvider = ({ children }) => {
         }
       }
     } catch (error) {
-      console.error('读取本地存储数据失败:', error);
+      console.error('Failed to read the local data :', error);
       localStorage.removeItem('token');
       localStorage.removeItem('user');
     }
@@ -40,7 +40,7 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
     } else {
-      console.error('登录失败:', result?.msg || '未知错误');
+      console.error('Login Failed:', result?.msg || 'Error');
     }
     return result;
   };
@@ -55,9 +55,9 @@ export const AuthProvider = ({ children }) => {
 
   const handleLogout = async () => {
     try {
-      console.log('登出成功');
+      console.log('Logout Successfully');
     } catch (error) {
-      console.error('登出失败:', error);
+      console.error('Logout Failed:', error);
     } finally {
       setToken(null);
       setUser(null);
