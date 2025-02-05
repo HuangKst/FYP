@@ -14,22 +14,40 @@ import {
     Dialog,
     DialogTitle,
     DialogContent,
-    DialogActions
+    DialogActions,
+    Select,
+    MenuItem
 } from '@mui/material';
-import { fetchInventory, addInventoryItem, importInventoryFromExcel } from '../api/inventoryApi';
+import { fetchInventory, addInventoryItem, importInventoryFromExcel, fetchMaterials } from '../api/inventoryApi';
 
 const InventoryPage = () => {
     const [inventory, setInventory] = useState([]);
+    const [materials, setMaterials] = useState([]); // 用于存储所有材质
     const [newItem, setNewItem] = useState({ material: '', specification: '', quantity: '', density: '' });
     const [openDialog, setOpenDialog] = useState(false);
+    const [selectedMaterial, setSelectedMaterial] = useState(''); // 查询的材质
+    const [searchKeyword, setSearchKeyword] = useState(''); // 查询关键字
 
     useEffect(() => {
         loadInventory();
+        loadMaterials(); // 加载材质列表
     }, []);
 
     const loadInventory = async () => {
         const data = await fetchInventory();
         if (data.success) setInventory(data.inventory);
+    };
+
+    const loadMaterials = async () => {
+        const data = await fetchMaterials();
+        if (data.success) setMaterials(data.materials);
+    };
+
+    const handleSearch = async () => {
+        const data = await fetchInventory(selectedMaterial, searchKeyword);
+        if (data.success) {
+            setInventory(data.inventory);
+        }
     };
 
     const handleAddItem = async () => {
@@ -55,11 +73,44 @@ const InventoryPage = () => {
         <Container>
             <Typography variant="h4" gutterBottom>Inventory Management</Typography>
 
+            {/* 查询区域 */}
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '20px' }}>
+                {/* 材质下拉框 */}
+                <Select
+                    value={selectedMaterial}
+                    onChange={(e) => setSelectedMaterial(e.target.value)}
+                    displayEmpty
+                    style={{ marginRight: '10px', minWidth: '150px' }}
+                >
+                    <MenuItem value="">All Materials</MenuItem>
+                    {materials.map((material) => (
+                        <MenuItem key={material} value={material}>
+                            {material}
+                        </MenuItem>
+                    ))}
+                </Select>
+
+                {/* 查询关键字输入框 */}
+                <TextField
+                    label="Search Specification"
+                    value={searchKeyword}
+                    onChange={(e) => setSearchKeyword(e.target.value)}
+                    style={{ marginRight: '10px' }}
+                />
+
+                {/* 查询按钮 */}
+                <Button variant="contained" color="primary" onClick={handleSearch}>
+                    Search
+                </Button>
+            </div>
+
+            {/* 添加库存项按钮 */}
             <Button variant="contained" color="primary" onClick={() => setOpenDialog(true)}>
                 Add Item
             </Button>
             <input type="file" accept=".xlsx" onChange={handleFileUpload} style={{ marginLeft: '10px' }} />
 
+            {/* 库存表格 */}
             <TableContainer component={Paper} style={{ marginTop: '20px' }}>
                 <Table>
                     <TableHead>
@@ -83,6 +134,7 @@ const InventoryPage = () => {
                 </Table>
             </TableContainer>
 
+            {/* 添加库存对话框 */}
             <Dialog
                 open={openDialog}
                 onClose={() => setOpenDialog(false)}
@@ -133,7 +185,6 @@ const InventoryPage = () => {
                     </Button>
                 </DialogActions>
             </Dialog>
-
         </Container>
     );
 };

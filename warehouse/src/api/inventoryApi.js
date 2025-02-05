@@ -30,6 +30,31 @@ export const fetchInventory = async (material, specification) => {
   }
 };
 
+/**
+ * 获取所有材质列表
+ * @returns {Promise<Object>} 返回材质数组
+ */
+export const fetchMaterials = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/inventory/materials`);
+      return response.data;
+    } catch (error) {
+      if (error.response && error.response.data) {
+        const { data } = error.response;
+        return {
+          success: data.success || false,
+          msg: data.msg || 'Failed to fetch materials',
+          status: error.response.status,
+        };
+      }
+      return {
+        success: false,
+        msg: 'Internet error',
+        status: 0,
+      };
+    }
+  };
+  
 // 添加库存项
 export const addInventoryItem = async (material, specification, quantity, density) => {
   try {
