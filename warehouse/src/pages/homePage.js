@@ -56,6 +56,16 @@ export default function Home() {
         >
           Go to Pending Page
         </Button>
+        <Button
+          component={Link}
+          to="/inventory"
+          variant="contained"
+          color="primary"
+          sx={{ textDecoration: "none" }}
+        >
+          Go to invebtory Page
+        </Button>
+        
       </Box>
     </Box>
   );

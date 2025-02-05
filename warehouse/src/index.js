@@ -11,6 +11,7 @@ import LoginPage from "./pages/LoginPage";
 import AuthContextProvider from "./contexts/authContext.js";
 import SignUpPage from "./pages/signUpPage.js";
 import ForbiddenPage from "./pages/forbiddenPage.js";
+import InventoryPage from "./pages/inventoryPage.js";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -29,6 +30,7 @@ const Layout = () => {
       <Routes>
         <Route element={<ProtectedRoutes/>}>
           <Route path="/home" element={<HomePage />} />  
+          <Route path="/inventory" element={<InventoryPage/>} />
           <Route element={<AdminRoutes/>}>   
           <Route path="/pending" element={<PendingPage/>} />
           </Route>
