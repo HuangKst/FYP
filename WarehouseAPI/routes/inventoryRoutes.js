@@ -1,6 +1,7 @@
 import express from 'express';
 import Inventory from '../Models/inventoryModel.js';
-
+import{Op,Sequelize} from 'sequelize';
+import { sequelize } from '../db/index.js';
 
 const router = express.Router();
 
@@ -13,7 +14,7 @@ router.get('/', async (req, res) => {
     const { material, spec } = req.query;
     const where = {};
     if (material) where.material = material;
-    if (spec) where.specification = spec; // Fuzzy search? or { [Op.like]: `%${spec}%` }
+    if (spec) where.specification = { [Op.like]: `%${spec}%` };
 
     const list = await Inventory.findAll({ where, order: [['specification','ASC']] });
     res.json({ success: true, inventory: list });
@@ -22,6 +23,24 @@ router.get('/', async (req, res) => {
     res.status(500).json({ success: false, msg: 'Failed to fetch inventory' });
   }
 });
+
+/**
+ * GET /api/inventory/materials
+ * 获取所有独特的材质
+ */
+router.get('/materials', async (req, res) => {
+  try {
+    const materials = await Inventory.findAll({
+      attributes: [[Sequelize.fn('DISTINCT', Sequelize.col('material')), 'material']],
+      order: [['material', 'ASC']]
+    });
+    res.json({ success: true, materials: materials.map((m) => m.material) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, msg: 'Failed to fetch materials' });
+  }
+});
+
 
 /**
  * POST /api/inventory
@@ -68,6 +87,7 @@ router.put('/:id', async (req, res) => {
  * 接收前端解析好的库存数据并存储到数据库
  */
 router.post('/import', async (req, res) => {
+  const transaction = await sequelize.transaction();
   try {
     const { inventory } = req.body; // 从前端接收解析好的数据
 
@@ -93,9 +113,10 @@ router.post('/import', async (req, res) => {
         await Inventory.create({ material, specification, quantity, density });
       }
     }
-
+    await transaction.commit(); // 提交事务
     res.json({ success: true, msg: 'Inventory imported successfully' });
   } catch (err) {
+    await transaction.rollback(); // 回滚事务
     console.error(err);
     res.status(500).json({ success: false, msg: 'Failed to import inventory' });
   }
