@@ -40,7 +40,6 @@ User.init({
     type: DataTypes.STRING(255),
     allowNull: false,
   },
-  // userId: 如果想自己定义一个 "userId" 之类的别名可加
   // role
   role: {
     type: DataTypes.ENUM('admin', 'boss', 'employee'),

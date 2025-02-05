@@ -1,6 +1,7 @@
 import express from 'express';
 import Inventory from '../Models/inventoryModel.js';
 
+
 const router = express.Router();
 
 /**
@@ -62,9 +63,42 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-//TODO
-/*
- * 导入excel
+/**
+ * POST /api/inventory/import
+ * 接收前端解析好的库存数据并存储到数据库
  */
+router.post('/import', async (req, res) => {
+  try {
+    const { inventory } = req.body; // 从前端接收解析好的数据
+
+    if (!inventory || !Array.isArray(inventory)) {
+      return res.status(400).json({ success: false, msg: 'Invalid inventory data' });
+    }
+
+    for (const item of inventory) {
+      const { material, specification, quantity, density } = item;
+
+      if (!material || !specification || !quantity) {
+        continue; // 跳过缺少必要字段的记录
+      }
+
+      const existingItem = await Inventory.findOne({ where: { material, specification } });
+
+      if (existingItem) {
+        // 如果存在相同的材质和规格，更新数量和比重
+        const newQuantity = (parseFloat(existingItem.quantity) + parseFloat(quantity)).toFixed(2);
+        await existingItem.update({ quantity: newQuantity, density: density || existingItem.density });
+      } else {
+        // 如果不存在，创建新记录
+        await Inventory.create({ material, specification, quantity, density });
+      }
+    }
+
+    res.json({ success: true, msg: 'Inventory imported successfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, msg: 'Failed to import inventory' });
+  }
+});
 
 export default router;
