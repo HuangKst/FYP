@@ -17,7 +17,9 @@ export default function LoginPage() {
     setError("");
 
     const result = await handleLogin(username, password);
+    console.log("Login result:", result);
     if (result.success) {
+      console.log("Navigating to home");  // 确保 navigate 代码执行
       navigate("/home");
     } else {
       setError(result.msg || "Login failed");

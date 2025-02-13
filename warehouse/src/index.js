@@ -1,6 +1,6 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, Route, Navigate, Routes} from "react-router-dom";
+import { BrowserRouter, Route, Navigate, Routes,Outlet} from "react-router-dom";
 import HomePage from "./pages/homePage";
 import { QueryClientProvider, QueryClient } from "react-query";
 import { ReactQueryDevtools } from 'react-query/devtools';
@@ -12,6 +12,7 @@ import AuthContextProvider from "./contexts/authContext.js";
 import SignUpPage from "./pages/signUpPage.js";
 import ForbiddenPage from "./pages/forbiddenPage.js";
 import InventoryPage from "./pages/inventoryPage.js";
+import SiteHeader from "./component/siteHeader/index.js";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -26,15 +27,25 @@ const queryClient = new QueryClient({
 const Layout = () => {
   return (
     <>
-      { } 
       <Routes>
-        <Route element={<ProtectedRoutes/>}>
-          <Route path="/home" element={<HomePage />} />  
-          <Route path="/inventory" element={<InventoryPage/>} />
-          <Route element={<AdminRoutes/>}>   
-          <Route path="/pending" element={<PendingPage/>} />
+        {/* 所有受保护的路由在 ProtectedRoutes 下 */}
+        <Route element={<ProtectedRoutes />}>
+          {/* 登录后的公共布局（包含 Header 和内容区域） */}
+          <Route element={
+            <>
+              <SiteHeader /> {/* 登录后显示 Header */}
+              <Outlet />     {/* 子路由内容 */}
+            </>
+          }>
+            <Route path="/home" element={<HomePage />} />  
+            <Route path="/inventory" element={<InventoryPage/>} />
+            {/* 管理员专属路由 */}
+            <Route element={<AdminRoutes />}>   
+              <Route path="/pending" element={<PendingPage/>} />
+            </Route>
           </Route>
         </Route>   
+        {/* 无需登录的路由 */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignUpPage/>}/>
         <Route path="/403" element={<ForbiddenPage />} />

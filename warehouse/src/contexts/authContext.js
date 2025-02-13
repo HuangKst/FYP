@@ -35,6 +35,7 @@ export const AuthProvider = ({ children }) => {
       const { token, user } = result;
       setToken(token);
       setUser(user);
+      console.log("Setting isAuthenticated to true");  // 确保状态正确更新
       setIsAuthenticated(true);
       setRole(user.userRole || "employee");
       localStorage.setItem('token', token);
