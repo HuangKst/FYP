@@ -4,12 +4,13 @@ import ExcelJS from 'exceljs';
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 
 // 获取库存数据（支持按材质和规格筛选）
-export const fetchInventory = async (material, specification) => {
+export const fetchInventory = async (material, specification,lowStock=false) => {
   try {
     const response = await axios.get(`${API_BASE_URL}/inventory`, {
       params: {
         material,
         spec: specification,
+        lowStock: lowStock ? 'true' : undefined,
       },
     });
     return response.data;

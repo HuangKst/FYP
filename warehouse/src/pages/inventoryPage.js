@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     Container,
     Typography,
@@ -16,7 +16,8 @@ import {
     DialogContent,
     DialogActions,
     Select,
-    MenuItem
+    MenuItem,
+    Checkbox, FormControlLabel 
 } from '@mui/material';
 import { fetchInventory, addInventoryItem, importInventoryFromExcel, fetchMaterials } from '../api/inventoryApi';
 
@@ -27,11 +28,23 @@ const InventoryPage = () => {
     const [openDialog, setOpenDialog] = useState(false);
     const [selectedMaterial, setSelectedMaterial] = useState(''); // 查询的材质
     const [searchKeyword, setSearchKeyword] = useState(''); // 查询关键字
+    const [lowStockOnly, setLowStockOnly] = useState(false); // 仅显示库存低的物料
 
     useEffect(() => {
         loadInventory();
         loadMaterials(); // 加载材质列表
     }, []);
+
+    const handleSearch = useCallback(async () => {
+        const data = await fetchInventory(selectedMaterial, searchKeyword, lowStockOnly);
+        if (data.success) {
+            setInventory(data.inventory);
+        }
+    }, [selectedMaterial, searchKeyword, lowStockOnly]); // 只有这三个值变化时，handleSearch 才会更新
+    
+    useEffect(() => {
+        handleSearch();
+    }, [handleSearch]); // 这样不会导致无限循环
 
     const loadInventory = async () => {
         const data = await fetchInventory();
@@ -43,12 +56,6 @@ const InventoryPage = () => {
         if (data.success) setMaterials(data.materials);
     };
 
-    const handleSearch = async () => {
-        const data = await fetchInventory(selectedMaterial, searchKeyword);
-        if (data.success) {
-            setInventory(data.inventory);
-        }
-    };
 
     const handleAddItem = async () => {
         if (!newItem.material || !newItem.specification || !newItem.quantity) return;
@@ -89,6 +96,7 @@ const InventoryPage = () => {
                         </MenuItem>
                     ))}
                 </Select>
+                
 
                 {/* 查询关键字输入框 */}
                 <TextField
@@ -102,6 +110,17 @@ const InventoryPage = () => {
                 <Button variant="contained" color="primary" onClick={handleSearch}>
                     Search
                 </Button>
+                {/*低库存展示*/}
+                <FormControlLabel
+                    control={
+                        <Checkbox
+                            checked={lowStockOnly}
+                            onChange={(e) => setLowStockOnly(e.target.checked)}
+                        />
+                    }
+                    label="Low Stock Only"
+                />
+
             </div>
 
             {/* 添加库存项按钮 */}
@@ -123,7 +142,7 @@ const InventoryPage = () => {
                     </TableHead>
                     <TableBody>
                         {inventory.map((item) => (
-                            <TableRow key={item.id}>
+                            <TableRow key={item.id} style={{ backgroundColor: item.quantity < 50 ? '#ffcccc' : 'transparent' }}>
                                 <TableCell>{item.material}</TableCell>
                                 <TableCell>{item.specification}</TableCell>
                                 <TableCell>{item.quantity}</TableCell>
@@ -131,6 +150,7 @@ const InventoryPage = () => {
                             </TableRow>
                         ))}
                     </TableBody>
+
                 </Table>
             </TableContainer>
 
