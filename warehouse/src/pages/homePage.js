@@ -1,7 +1,7 @@
 import React from "react";
-import { Link } from "react-router-dom";
-import { Box, Typography, Button } from "@mui/material";
-import logo from "../picture/logo.webp"; // 引入你的 Logo
+
+import { Box, Typography } from "@mui/material";
+
 
 export default function Home() {
   return (

@@ -13,7 +13,7 @@ import SignUpPage from "./pages/signUpPage.js";
 import ForbiddenPage from "./pages/forbiddenPage.js";
 import InventoryPage from "./pages/inventoryPage.js";
 import SiteHeader from "./component/siteHeader/index.js";
-
+import CustomerPage from "./pages/customerPage.js";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -39,6 +39,7 @@ const Layout = () => {
           }>
             <Route path="/home" element={<HomePage />} />  
             <Route path="/inventory" element={<InventoryPage/>} />
+            <Route path="/customer" element={<CustomerPage/>} />
             {/* 管理员专属路由 */}
             <Route element={<AdminRoutes />}>   
               <Route path="/pending" element={<PendingPage/>} />
