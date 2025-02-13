@@ -11,10 +11,11 @@ const router = express.Router();
  */
 router.get('/', async (req, res) => {
   try {
-    const { material, spec } = req.query;
+    const { material, spec,lowStock } = req.query;
     const where = {};
     if (material) where.material = material;
     if (spec) where.specification = { [Op.like]: `%${spec}%` };
+    if (lowStock === 'true') where.quantity = { [Op.lt]: 50 }; // 低于 50 触发预警
 
     const list = await Inventory.findAll({ where, order: [['specification','ASC']] });
     res.json({ success: true, inventory: list });
