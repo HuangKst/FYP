@@ -17,9 +17,9 @@ import {
     DialogActions,
     Select,
     MenuItem,
-    Checkbox, FormControlLabel 
+    Checkbox, FormControlLabel
 } from '@mui/material';
-import { fetchInventory, addInventoryItem, importInventoryFromExcel, fetchMaterials } from '../api/inventoryApi';
+import { fetchInventory, addInventoryItem, importInventoryFromExcel, fetchMaterials, exportInventoryToExcel } from '../api/inventoryApi';
 
 const InventoryPage = () => {
     const [inventory, setInventory] = useState([]);
@@ -29,6 +29,8 @@ const InventoryPage = () => {
     const [selectedMaterial, setSelectedMaterial] = useState(''); // 查询的材质
     const [searchKeyword, setSearchKeyword] = useState(''); // 查询关键字
     const [lowStockOnly, setLowStockOnly] = useState(false); // 仅显示库存低的物料
+    const [exportLoading, setExportLoading] = useState(false);
+
 
     useEffect(() => {
         loadInventory();
@@ -41,7 +43,7 @@ const InventoryPage = () => {
             setInventory(data.inventory);
         }
     }, [selectedMaterial, searchKeyword, lowStockOnly]); // 只有这三个值变化时，handleSearch 才会更新
-    
+
     useEffect(() => {
         handleSearch();
     }, [handleSearch]); // 这样不会导致无限循环
@@ -75,6 +77,15 @@ const InventoryPage = () => {
             loadInventory();
         }
     };
+    // 修改导出处理逻辑
+    const handleExport = async () => {
+        setExportLoading(true);
+        const result = await exportInventoryToExcel();
+        setExportLoading(false);
+        if (!result.success) {
+            alert(result.msg || 'Export failed');
+        }
+    };
 
     return (
         <Container>
@@ -96,7 +107,7 @@ const InventoryPage = () => {
                         </MenuItem>
                     ))}
                 </Select>
-                
+
 
                 {/* 查询关键字输入框 */}
                 <TextField
@@ -120,6 +131,15 @@ const InventoryPage = () => {
                     }
                     label="Low Stock Only"
                 />
+
+                <Button
+                    variant="contained"
+                    color="secondary"
+                    onClick={handleExport}
+                    disabled={exportLoading}
+                >
+                    {exportLoading ? 'Exporting...' : 'Export to Excel'}
+                </Button>
 
             </div>
 

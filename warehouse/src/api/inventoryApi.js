@@ -55,6 +55,8 @@ export const fetchMaterials = async () => {
       };
     }
   };
+
+  
   
 // 添加库存项
 export const addInventoryItem = async (material, specification, quantity, density) => {
@@ -150,5 +152,31 @@ export const importInventoryFromExcel = async (file) => {
       msg: 'Internet error',
       status: 0,
     };
+  }
+};
+
+// 在文件末尾新增
+export const exportInventoryToExcel = async () => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/inventory/export`, {
+      responseType: 'blob',
+    });
+    
+    // 创建下载链接
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'inventory_export.xlsx');
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    
+    return { success: true };
+  } catch (error) {
+    if (error.response && error.response.data) {
+      const { data } = error.response;
+      return { success: false, msg: data.msg || 'Export failed' };
+    }
+    return { success: false, msg: 'Network error' };
   }
 };
