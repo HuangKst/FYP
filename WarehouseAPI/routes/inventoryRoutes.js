@@ -2,6 +2,7 @@ import express from 'express';
 import Inventory from '../Models/inventoryModel.js';
 import{Op,Sequelize} from 'sequelize';
 import { sequelize } from '../db/index.js';
+import ExcelJS from 'exceljs';
 
 const router = express.Router();
 
@@ -120,6 +121,58 @@ router.post('/import', async (req, res) => {
     await transaction.rollback(); // 回滚事务
     console.error(err);
     res.status(500).json({ success: false, msg: 'Failed to import inventory' });
+  }
+});
+
+
+// 导出库存到Excel
+router.get('/export', async (req, res) => {
+  try {
+    const data = await Inventory.findAll({
+      order: [['material', 'ASC'], ['specification', 'ASC']]
+    });
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Inventory');
+
+    // 设置表头（需要与数据库字段对应）
+    worksheet.columns = [
+      { header: 'Material', key: 'material', width: 20 },
+      { header: 'Specification', key: 'specification', width: 30 },
+      { header: 'Quantity', key: 'quantity', width: 15 },
+      { header: 'Density', key: 'density', width: 15 },
+      { header: 'Created At', key: 'created_at', width: 20 },
+      { header: 'Updated At', key: 'updated_at', width: 20 }
+    ];
+
+    // 填充数据
+    data.forEach(item => {
+      worksheet.addRow({
+        material: item.material,
+        specification: item.specification,
+        quantity: item.quantity,
+        density: item.density,
+        created_at: item.created_at,
+        updated_at: item.updated_at
+      });
+    });
+
+    // 设置响应头
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="inventory_export.xlsx"'
+    );
+
+    // 发送文件流
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    console.error('Export failed:', err);
+    res.status(500).json({ success: false, msg: 'Export failed' });
   }
 });
 

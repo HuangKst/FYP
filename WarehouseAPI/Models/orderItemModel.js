@@ -25,17 +25,19 @@ OrderItem.init({
   },
   unit: {
     type: DataTypes.STRING(50),
-    defaultValue: '支'
+    defaultValue: 'piece'
   },
   weight: {
     type: DataTypes.DECIMAL(15, 3)
   },
   unit_price: {
     type: DataTypes.DECIMAL(15, 2),
+    allowNull:false,
     defaultValue: 0.00
   },
   subtotal: {
     type: DataTypes.DECIMAL(15, 2),
+    allowNull:false,
     defaultValue: 0.00
   },
   remark: {

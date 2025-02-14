@@ -25,12 +25,16 @@ Order.init({
     allowNull: false    // 若必须有一个操作人，否则可 allowNull: true
   },
   is_completed: {
-    type: DataTypes.BOOLEAN,
-    defaultValue: false
+    type: DataTypes.TINYINT, // 用 TINYINT 代替 BOOLEAN，和数据库一致
+    defaultValue: 0
   },
   is_paid: {
-    type: DataTypes.BOOLEAN,
-    defaultValue: false
+    type: DataTypes.TINYINT, // 用 TINYINT 代替 BOOLEAN，和数据库一致
+    defaultValue: 0
+  },
+  customer_id: {
+    type: DataTypes.BIGINT,
+    allowNull: false
   },
   remark: {
     type: DataTypes.TEXT
