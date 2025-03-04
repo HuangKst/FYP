@@ -14,14 +14,21 @@ const authenticate = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.SECRET);
-    const user = await User.findByUserName(decoded.username);
+    console.log('✅ Decoded JWT:', decoded);  // 先检查 JWT 是否正确解析
+
+    // **🚀 修正这里**
+    const user = await User.findOne({ where: { username: decoded.username } });
 
     if (!user) {
       return res.status(404).json({ success: false, msg: 'User not found' });
     }
 
-    // 将用户信息附加到请求对象上
+    // ✅ 记录成功找到的用户
+    console.log('✅ Authenticated User:', user.username);
+
+    // **附加用户信息到请求对象**
     req.user = user;
+
     next();
   } catch (err) {
     console.error('Authentication Error:', err.message);

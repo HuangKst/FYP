@@ -39,6 +39,11 @@ Order.init({
   remark: {
     type: DataTypes.TEXT
   },
+  total_price: {
+    type: DataTypes.DECIMAL(10,2), // 存储金额，最多10位，其中2位小数
+    allowNull: false,
+    defaultValue: 0.00 // 默认值为 0.00
+  }
 }, {
   sequelize,
   modelName: 'Order',

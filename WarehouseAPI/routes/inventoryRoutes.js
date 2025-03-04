@@ -3,6 +3,7 @@ import Inventory from '../Models/inventoryModel.js';
 import{Op,Sequelize} from 'sequelize';
 import { sequelize } from '../db/index.js';
 import ExcelJS from 'exceljs';
+import authenticate from '../authenticate/index.js';
 
 const router = express.Router();
 
@@ -10,7 +11,7 @@ const router = express.Router();
  * GET /api/inventory
  * 查询库存 (可加筛选: material=?, specification=?)
  */
-router.get('/', async (req, res) => {
+router.get('/',async (req, res) => {
   try {
     const { material, spec,lowStock } = req.query;
     const where = {};
@@ -30,7 +31,7 @@ router.get('/', async (req, res) => {
  * GET /api/inventory/materials
  * 获取所有独特的材质
  */
-router.get('/materials', async (req, res) => {
+router.get('/materials',async (req, res) => {
   try {
     const materials = await Inventory.findAll({
       attributes: [[Sequelize.fn('DISTINCT', Sequelize.col('material')), 'material']],
@@ -48,7 +49,7 @@ router.get('/materials', async (req, res) => {
  * POST /api/inventory
  * 单独添加材料(材质, 规格, 数量, 比重)
  */
-router.post('/', async (req, res) => {
+router.post('/',async (req, res) => {
   try {
     const { material, specification, quantity, density } = req.body;
     // Check if the same material+spec already exists
@@ -72,7 +73,7 @@ router.post('/', async (req, res) => {
  * PUT /api/inventory/:id
  * 修改库存(数量,比重)
  */
-router.put('/:id', async (req, res) => {
+router.put('/:id',async (req, res) => {
   try {
     const { quantity, density } = req.body;
     const [count] = await Inventory.update({ quantity, density }, { where: { id: req.params.id } });
@@ -88,7 +89,7 @@ router.put('/:id', async (req, res) => {
  * POST /api/inventory/import
  * 接收前端解析好的库存数据并存储到数据库
  */
-router.post('/import', async (req, res) => {
+router.post('/import',async (req, res) => {
   const transaction = await sequelize.transaction();
   try {
     const { inventory } = req.body; // 从前端接收解析好的数据
