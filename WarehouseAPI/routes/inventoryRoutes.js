@@ -3,7 +3,6 @@ import Inventory from '../Models/inventoryModel.js';
 import{Op,Sequelize} from 'sequelize';
 import { sequelize } from '../db/index.js';
 import ExcelJS from 'exceljs';
-import authenticate from '../authenticate/index.js';
 
 const router = express.Router();
 
@@ -49,22 +48,28 @@ router.get('/materials',async (req, res) => {
  * POST /api/inventory
  * 单独添加材料(材质, 规格, 数量, 比重)
  */
-router.post('/',async (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const { material, specification, quantity, density } = req.body;
-    // Check if the same material+spec already exists
+
+    if (!material || !specification || !quantity) {
+      return res.status(400).json({ success: false, msg: 'Missing required fields' });
+    }
+
+    // 处理 `density`，如果是空字符串，就改为 `null`
+    const densityValue = density === '' ? null : density;
+
     let inv = await Inventory.findOne({ where: { material, specification } });
     if (inv) {
-      // Accumulate?
       const newQty = (parseFloat(inv.quantity) + parseFloat(quantity)).toFixed(2);
-      await inv.update({ quantity: newQty, density: density || inv.density });
+      await inv.update({ quantity: newQty, density: densityValue || inv.density });
       return res.json({ success: true, msg: 'Inventory updated successfully', inventory: inv });
     } else {
-      const newInv = await Inventory.create({ material, specification, quantity, density });
+      const newInv = await Inventory.create({ material, specification, quantity, density: densityValue });
       return res.status(201).json({ success: true, inventory: newInv });
     }
   } catch (err) {
-    console.error(err);
+    console.error('❌ Failed to add inventory:', err);
     res.status(500).json({ success: false, msg: 'Failed to add inventory' });
   }
 });

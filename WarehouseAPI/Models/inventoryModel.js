@@ -22,7 +22,8 @@ Inventory.init({
     defaultValue: 0.00
   },
   density: {
-    type: DataTypes.DECIMAL(15, 3)
+    type: DataTypes.DECIMAL(15, 3),
+    allowNull:true
   }
 }, {
   sequelize,
