@@ -21,19 +21,19 @@ const port = process.env.PORT || 3000;
 // 中间件
 app.use(cors());
 app.use(express.json());
-app.use(logger)
+
 
 
 
 // 路由
 app.use('/api/users', usersRouter); // 如果部分路由不需要认证，可直接使用
-app.use('/api/admin', authenticate, adminRouter);
-app.use('/api/customers',  authenticate,customerRoutes);
-app.use('/api/orders',  authenticate,orderRoutes);
-app.use('/api/inventory',  authenticate,inventoryRoutes);
-app.use('/api/employees',  authenticate,employeeRoutes);
-app.use('/api/employee-leaves',  authenticate,employeeLeaveRoutes);
-app.use('/api/employee-overtimes',  authenticate,employeeOvertimeRoutes);
+app.use('/api/admin', authenticate,logger, adminRouter);
+app.use('/api/customers', authenticate,logger, customerRoutes);
+app.use('/api/orders', authenticate, logger,orderRoutes);
+app.use('/api/inventory', authenticate, logger,inventoryRoutes);
+app.use('/api/employees', authenticate, logger,employeeRoutes);
+app.use('/api/employee-leaves', authenticate,logger, employeeLeaveRoutes);
+app.use('/api/employee-overtimes', authenticate, logger,employeeOvertimeRoutes);
 
 
 
