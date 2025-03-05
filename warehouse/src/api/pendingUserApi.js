@@ -1,37 +1,23 @@
+import instance from './axios';
+import { handleError } from '../utils/errorHandler';
 
-import axios from 'axios';
-
+// 获取待审批的用户列表
 export async function fetchPendingUsers() {
-  const token = localStorage.getItem('token'); // 从 localStorage 获取纯 token
-  if (!token) {
-    throw new Error('Token is missing. Please log in first.');
+  try {
+    const response = await instance.get(`/admin/pending-users`);
+    return response.data;
+  } catch (error) {
+    return handleError(error, 'Failed to fetch pending users');
   }
-
-  const response = await axios.get(`${process.env.REACT_APP_API_BASE_URL }/admin/pending-users`, {
-    headers: {
-      Authorization: `Bearer ${token}`, // 前端负责添加 "Bearer "
-    },
-  });
-
-  return response.data;
 }
 
-
-
+// 审批用户（批准/拒绝）
 export async function approveUser(userId, isApproved) {
-  const token = localStorage.getItem('token'); // 从 localStorage 获取 token
-  if (!token) {
-    throw new Error('No token found. Please log in first.');
+  try {
+    const newStatus = isApproved ? 'active' : 'inactive';
+    await instance.put(`/admin/approve-user/${userId}`, { status: newStatus });
+    return { success: true };
+  } catch (error) {
+    return handleError(error, 'Failed to approve user');
   }
-
-  const newStatus = isApproved ? 'active' : 'inactive';
-  await axios.put(`${process.env.REACT_APP_API_BASE_URL }/admin/approve-user/${userId}`, 
-    { status: newStatus },
-    {
-      headers: {
-        Authorization: `Bearer ${token}`, // 设置 Authorization 头
-      },
-    }
-  );
 }
-

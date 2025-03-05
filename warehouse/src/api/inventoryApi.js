@@ -1,33 +1,20 @@
-import axios from 'axios';
 import ExcelJS from 'exceljs';
-
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
-
+import instance from './axios';
+import { handleError } from '../utils/errorHandler';
 // 获取库存数据（支持按材质和规格筛选）
-export const fetchInventory = async (material, specification,lowStock=false) => {
+export const fetchInventory = async (material, specification, lowStock = false) => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/inventory`, {
+    const response = await instance.get(`/inventory`, {
       params: {
         material,
         spec: specification,
         lowStock: lowStock ? 'true' : undefined,
       },
     });
+    console.log("✅ Inventory data received:", response.data);
     return response.data;
   } catch (error) {
-    if (error.response && error.response.data) {
-      const { data } = error.response;
-      return {
-        success: data.success || false,
-        msg: data.msg || 'Failed to fetch inventory',
-        status: error.response.status,
-      };
-    }
-    return {
-      success: false,
-      msg: 'Internet error',
-      status: 0,
-    };
+    return handleError(error, 'Failed to fetch inventory')
   }
 };
 
@@ -36,32 +23,19 @@ export const fetchInventory = async (material, specification,lowStock=false) => 
  * @returns {Promise<Object>} 返回材质数组
  */
 export const fetchMaterials = async () => {
-    try {
-      const response = await axios.get(`${API_BASE_URL}/inventory/materials`);
-      return response.data;
-    } catch (error) {
-      if (error.response && error.response.data) {
-        const { data } = error.response;
-        return {
-          success: data.success || false,
-          msg: data.msg || 'Failed to fetch materials',
-          status: error.response.status,
-        };
-      }
-      return {
-        success: false,
-        msg: 'Internet error',
-        status: 0,
-      };
-    }
-  };
+  try {
+    const response = await instance.get(`/inventory/materials`);
+    return response.data;
+  } catch (error) {
+    return handleError(error, 'Failed to fetch materials')
+  }
+};
 
-  
-  
+
 // 添加库存项
 export const addInventoryItem = async (material, specification, quantity, density) => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/inventory`, {
+    const response = await instance.post(`/inventory`, {
       material,
       specification,
       quantity,
@@ -69,44 +43,20 @@ export const addInventoryItem = async (material, specification, quantity, densit
     });
     return response.data;
   } catch (error) {
-    if (error.response && error.response.data) {
-      const { data } = error.response;
-      return {
-        success: data.success || false,
-        msg: data.msg || 'Failed to add inventory item',
-        status: error.response.status,
-      };
-    }
-    return {
-      success: false,
-      msg: 'Internet error',
-      status: 0,
-    };
+    return handleError(error, 'Failed to add inventory item')
   }
 };
 
 // 修改库存项
 export const updateInventoryItem = async (id, quantity, density) => {
   try {
-    const response = await axios.put(`${API_BASE_URL}/inventory/${id}`, {
+    const response = await instance.put(`/inventory/${id}`, {
       quantity,
       density,
     });
     return response.data;
   } catch (error) {
-    if (error.response && error.response.data) {
-      const { data } = error.response;
-      return {
-        success: data.success || false,
-        msg: data.msg || 'Failed to update inventory item',
-        status: error.response.status,
-      };
-    }
-    return {
-      success: false,
-      msg: 'Internet error',
-      status: 0,
-    };
+    return handleError(error, 'Failed to update inventory item')
   }
 };
 
@@ -133,35 +83,23 @@ export const importInventoryFromExcel = async (file) => {
     });
 
     // 发送数据到后端
-    const response = await axios.post(`${API_BASE_URL}/inventory/import`, {
+    const response = await instance.post(`/inventory/import`, {
       inventory: inventoryData,
     });
 
     return response.data;
   } catch (error) {
-    if (error.response && error.response.data) {
-      const { data } = error.response;
-      return {
-        success: data.success || false,
-        msg: data.msg || 'Failed to import inventory',
-        status: error.response.status,
-      };
-    }
-    return {
-      success: false,
-      msg: 'Internet error',
-      status: 0,
-    };
+    return handleError(error, 'Failed to import inventory')
   }
 };
 
-// 在文件末尾新增
+// 导出库存数据到 Excel
 export const exportInventoryToExcel = async () => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/inventory/export`, {
+    const response = await instance.get(`/inventory/export`, {
       responseType: 'blob',
     });
-    
+
     // 创建下载链接
     const url = window.URL.createObjectURL(new Blob([response.data]));
     const link = document.createElement('a');
@@ -170,13 +108,10 @@ export const exportInventoryToExcel = async () => {
     document.body.appendChild(link);
     link.click();
     link.remove();
-    
+    window.URL.revokeObjectURL(url); // 释放 URL，避免内存泄漏
+
     return { success: true };
   } catch (error) {
-    if (error.response && error.response.data) {
-      const { data } = error.response;
-      return { success: false, msg: data.msg || 'Export failed' };
-    }
-    return { success: false, msg: 'Network error' };
+    return handleError(error, 'Export failed')
   }
 };

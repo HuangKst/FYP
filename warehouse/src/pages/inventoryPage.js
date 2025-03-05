@@ -60,10 +60,10 @@ const InventoryPage = () => {
 
 
     const handleAddItem = async () => {
-        if (!newItem.material || !newItem.specification || !newItem.quantity) return;
-        const result = await addInventoryItem(newItem.material, newItem.specification, newItem.quantity, newItem.density);
+        if (!newItem.material || !newItem.specification || !newItem.quantity || !newItem.created_at) return;
+        const result = await addInventoryItem(newItem.material, newItem.specification, newItem.quantity, newItem.density,newItem.created_at);
         if (result.success) {
-            setNewItem({ material: '', specification: '', quantity: '', density: '' });
+            setNewItem({ material: '', specification: '', quantity: '', density: '' ,created_at:''});
             setOpenDialog(false);
             loadInventory();
         }
@@ -158,6 +158,7 @@ const InventoryPage = () => {
                             <TableCell>Specification</TableCell>
                             <TableCell>Quantity</TableCell>
                             <TableCell>Density</TableCell>
+                            <TableCell>Create Time</TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
@@ -167,6 +168,7 @@ const InventoryPage = () => {
                                 <TableCell>{item.specification}</TableCell>
                                 <TableCell>{item.quantity}</TableCell>
                                 <TableCell>{item.density}</TableCell>
+                                <TableCell>{new Date(item.created_at).toISOString().split('T')[0]}</TableCell>
                             </TableRow>
                         ))}
                     </TableBody>
