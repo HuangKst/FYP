@@ -4,6 +4,7 @@ import OrderItem from '../Models/orderItemModel.js';
 import Customer from '../Models/customerModel.js';
 import User from '../Models/userModel.js';
 import Inventory from '../Models/inventoryModel.js';
+import { Op } from 'sequelize';
 
 const router = express.Router();
 
@@ -32,12 +33,15 @@ router.post('/', async (req, res) => {
 
     // 3. Create OrderItems
     //    Iterate through items array
+    let totalPrice = 0;
     for (let it of items) {
       // it={ material, specification, quantity, unit, weight, unit_price, ... }
       // Calculate subtotal
       const subtotal = it.weight 
         ? (parseFloat(it.weight) * parseFloat(it.unit_price)).toFixed(2) 
         : (parseFloat(it.quantity) * parseFloat(it.unit_price)).toFixed(2);
+      
+      totalPrice += parseFloat(subtotal);
 
       await OrderItem.create({
         order_id: newOrder.id,
@@ -51,6 +55,9 @@ router.post('/', async (req, res) => {
         remark: it.remark || ''
       });
     }
+    
+    // 更新订单总金额
+    await newOrder.update({ total_price: totalPrice.toFixed(2) });
 
     // If it's a SALES order, reduce inventory
     if (order_type === 'SALES') {
@@ -85,19 +92,29 @@ router.post('/', async (req, res) => {
  */
 router.get('/', async (req, res) => {
   try {
-    const { type, paid, completed } = req.query;
+    const { type, paid, completed, customerName } = req.query;
     const where = {};
     if (type) where.order_type = type;
     if (paid !== undefined) where.is_paid = (paid === 'true');
     if (completed !== undefined) where.is_completed = (completed === 'true');
 
+    const include = [
+      { model: Customer },
+      { model: User },
+      { model: OrderItem }
+    ];
+
+    // 如果提供了客户名，添加客户名过滤条件
+    if (customerName) {
+      include[0].where = {
+        name: { [Op.like]: `%${customerName}%` }
+      };
+    }
+
     const orders = await Order.findAll({
       where,
       order: [['created_at','DESC']],
-      include: [
-        { model: Customer },
-        { model: User },
-      ]
+      include
     });
     res.json({ success: true, orders });
   } catch (err) {
@@ -126,6 +143,15 @@ router.get('/:id', async (req, res) => {
     if (!order) {
       return res.status(404).json({ success: false, msg: 'Order not found' });
     }
+    
+    // 计算订单总金额，确保响应中包含total_price
+    if (order.order_items && order.order_items.length > 0 && !order.total_price) {
+      const totalPrice = order.order_items.reduce((sum, item) => {
+        return sum + parseFloat(item.subtotal || 0);
+      }, 0);
+      order.total_price = totalPrice.toFixed(2);
+    }
+    
     res.json({ success: true, order });
   } catch (err) {
     console.error(err);

@@ -16,6 +16,7 @@ const SiteHeader = () => {
         <Box>
           <Button color="inherit" component={Link} to="/home">Home</Button>
           <Button color="inherit" component={Link} to="/inventory">Inventory</Button>
+          <Button color="inherit" component={Link} to="/orders">Orders</Button>
           <Button color="inherit" component={Link} to="/pending">Pending</Button>
           <Button color="inherit" component={Link} to="/customer">Customer</Button>
         </Box>

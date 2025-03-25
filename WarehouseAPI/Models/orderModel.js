@@ -22,7 +22,7 @@ Order.init({
   },
   user_id: {
     type: DataTypes.BIGINT,
-    allowNull: false    // 若必须有一个操作人，否则可 allowNull: true
+    allowNull: false    // 记录业务员id
   },
   is_completed: {
     type: DataTypes.TINYINT, // 用 TINYINT 代替 BOOLEAN，和数据库一致
@@ -33,14 +33,14 @@ Order.init({
     defaultValue: 0
   },
   customer_id: {
-    type: DataTypes.BIGINT,
+    type: DataTypes.BIGINT, // 记录客户id
     allowNull: false
   },
   remark: {
     type: DataTypes.TEXT
   },
   total_price: {
-    type: DataTypes.DECIMAL(10,2), // 存储金额，最多10位，其中2位小数
+    type: DataTypes.DECIMAL(10,2), // 总金额
     allowNull: false,
     defaultValue: 0.00 // 默认值为 0.00
   }
