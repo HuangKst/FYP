@@ -65,7 +65,9 @@ const OrderDetail = ({ orderId, open, onClose, onStatusChange }) => {
             setLoading(true);
             try {
                 const response = await fetchOrderById(orderId);
-                console.log('Order detail response:', response); // 添加调试日志
+                console.log('完整的订单详情数据:', response); // 添加详细的日志
+                console.log('用户信息:', response.order?.user); // 查看用户信息
+                console.log('客户信息:', response.order?.customer); // 查看客户信息
                 if (response.success && response.order) {
                     // 确保订单项数据正确格式化
                     let orderData = response.order;
@@ -202,7 +204,17 @@ const OrderDetail = ({ orderId, open, onClose, onStatusChange }) => {
                                 </Grid>
                                 <Grid item xs={12} sm={6}>
                                     <Typography variant="subtitle2" component="div">Customer</Typography>
-                                    <Typography component="div">{order.customer?.name || 'Unknown Customer'}</Typography>
+                                    <Typography component="div">
+                                        {order.Customer ? (
+                                            <>
+                                                {order.Customer.name}
+                                                {order.Customer.phone && ` (${order.Customer.phone})`}
+                                                {order.Customer.address && <div style={{ fontSize: '0.9em', color: '#666' }}>{order.Customer.address}</div>}
+                                            </>
+                                        ) : (
+                                            <span style={{ color: '#999' }}>Unknown Customer</span>
+                                        )}
+                                    </Typography>
                                 </Grid>
                                 <Grid item xs={12} sm={6}>
                                     <Typography variant="subtitle2" component="div">Created Date</Typography>
@@ -210,7 +222,16 @@ const OrderDetail = ({ orderId, open, onClose, onStatusChange }) => {
                                 </Grid>
                                 <Grid item xs={12} sm={6}>
                                     <Typography variant="subtitle2" component="div">Created By</Typography>
-                                    <Typography component="div">{order.user?.name || 'Unknown User'}</Typography>
+                                    <Typography component="div">
+                                        {order.User ? (
+                                            <>
+                                                {order.User.username}
+                                                {order.User.role && ` (${order.User.role})`}
+                                            </>
+                                        ) : (
+                                            <span style={{ color: '#999' }}>Unknown User</span>
+                                        )}
+                                    </Typography>
                                 </Grid>
                                 {order.order_type === 'SALES' && (
                                     <>

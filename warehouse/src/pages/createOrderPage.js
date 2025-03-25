@@ -21,7 +21,11 @@ import {
     DialogTitle,
     DialogContent,
     DialogActions,
-    Autocomplete
+    Autocomplete,
+    List,
+    ListItem,
+    ListItemText,
+    Divider
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
@@ -36,6 +40,8 @@ const CreateOrderPage = () => {
     const [customers, setCustomers] = useState([]);
     const [inventory, setInventory] = useState([]);
     const [confirmDialog, setConfirmDialog] = useState(false);
+    const [inventoryDialog, setInventoryDialog] = useState(false);
+    const [insufficientItems, setInsufficientItems] = useState([]);
     
     // 订单基本信息
     const [orderType, setOrderType] = useState('QUOTE'); // 默认为报价单
@@ -178,6 +184,8 @@ const CreateOrderPage = () => {
         
         // 检查如果是销售订单，库存是否足够
         if (orderType === 'SALES') {
+            const insufficient = [];
+            
             for (const item of orderItems) {
                 const inventoryItem = inventory.find(inv => 
                     inv.material === item.material && 
@@ -185,19 +193,45 @@ const CreateOrderPage = () => {
                 );
                 
                 if (!inventoryItem) {
-                    alert(`Material ${item.material} ${item.specification} does not exist in inventory`);
-                    return;
+                    insufficient.push({
+                        material: item.material,
+                        specification: item.specification,
+                        required: parseFloat(item.quantity),
+                        available: 0,
+                        missing: parseFloat(item.quantity)
+                    });
+                    continue;
                 }
                 
                 if (parseFloat(inventoryItem.quantity) < parseFloat(item.quantity)) {
-                    alert(`Insufficient inventory for ${item.material} ${item.specification}, current stock: ${inventoryItem.quantity}`);
-                    return;
+                    insufficient.push({
+                        material: item.material,
+                        specification: item.specification,
+                        required: parseFloat(item.quantity),
+                        available: parseFloat(inventoryItem.quantity),
+                        missing: parseFloat(item.quantity) - parseFloat(inventoryItem.quantity)
+                    });
                 }
+            }
+            
+            // 如果有库存不足的项目，显示对话框
+            if (insufficient.length > 0) {
+                setInsufficientItems(insufficient);
+                setInventoryDialog(true);
+                return;
             }
         }
         
         // 打开确认对话框
         setConfirmDialog(true);
+    };
+
+    // 导航到库存页面增加库存
+    const handleAddInventory = () => {
+        // 关闭对话框
+        setInventoryDialog(false);
+        // 导航到库存页面
+        navigate('/inventory');
     };
 
     // 确认并提交订单
@@ -496,6 +530,44 @@ const CreateOrderPage = () => {
                     </Button>
                     <Button onClick={confirmSubmit} color="primary" disabled={loading}>
                         {loading ? 'Submitting...' : 'Confirm'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+            
+            {/* 库存不足对话框 */}
+            <Dialog
+                open={inventoryDialog}
+                onClose={() => setInventoryDialog(false)}
+                maxWidth="md"
+            >
+                <DialogTitle>Insufficient Inventory</DialogTitle>
+                <DialogContent>
+                    <Typography gutterBottom>
+                        The following items have insufficient inventory:
+                    </Typography>
+                    <List>
+                        {insufficientItems.map((item, index) => (
+                            <React.Fragment key={index}>
+                                <ListItem>
+                                    <ListItemText
+                                        primary={`${item.material} - ${item.specification}`}
+                                        secondary={`Required: ${item.required}, Available: ${item.available}, Missing: ${item.missing}`}
+                                    />
+                                </ListItem>
+                                {index < insufficientItems.length - 1 && <Divider />}
+                            </React.Fragment>
+                        ))}
+                    </List>
+                    <Typography style={{ marginTop: '16px' }}>
+                        Would you like to add inventory for these items?
+                    </Typography>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setInventoryDialog(false)}>
+                        Cancel
+                    </Button>
+                    <Button onClick={handleAddInventory} color="primary" variant="contained">
+                        Go to Inventory
                     </Button>
                 </DialogActions>
             </Dialog>
