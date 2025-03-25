@@ -262,12 +262,12 @@ const OrderPage = () => {
                                     </TableCell>
                                     <TableCell>
                                         {order.order_type === 'SALES' ? 
-                                            (order.is_paid ? 'Paid' : 'Unpaid') : 
+                                            ((order.is_paid === 1 || order.is_paid === true) ? 'Paid' : 'Unpaid') : 
                                             '-'}
                                     </TableCell>
                                     <TableCell>
                                         {order.order_type === 'SALES' ? 
-                                            (order.is_completed ? 'Completed' : 'Pending') : 
+                                            ((order.is_completed === 1 || order.is_completed === true) ? 'Completed' : 'Pending') : 
                                             '-'}
                                     </TableCell>
                                     <TableCell>

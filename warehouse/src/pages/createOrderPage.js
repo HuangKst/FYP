@@ -20,7 +20,8 @@ import {
     Dialog,
     DialogTitle,
     DialogContent,
-    DialogActions
+    DialogActions,
+    Autocomplete
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
@@ -49,7 +50,8 @@ const CreateOrderPage = () => {
         unit: 'piece',
         weight: '',
         unit_price: '',
-        remark: ''
+        remark: '',
+        searchSpec: ''  // 添加规格搜索字段
     }]);
 
     // 获取客户列表和库存信息
@@ -82,7 +84,8 @@ const CreateOrderPage = () => {
             unit: 'piece',
             weight: '',
             unit_price: '',
-            remark: ''
+            remark: '',
+            searchSpec: ''  // 添加规格搜索字段
         }]);
     };
 
@@ -142,6 +145,15 @@ const CreateOrderPage = () => {
         return inventory
             .filter(item => item.material === material)
             .map(item => item.specification);
+    };
+
+    // 模糊搜索规格
+    const filterSpecifications = (material, inputValue) => {
+        if (!material || !inputValue) return [];
+        const options = getSpecificationOptions(material);
+        return options.filter(option => 
+            option.toLowerCase().includes(inputValue.toLowerCase())
+        ).slice(0, 5); // 只返回前5个匹配结果
     };
 
     // 表单验证
@@ -304,15 +316,15 @@ const CreateOrderPage = () => {
                     <Table>
                         <TableHead>
                             <TableRow>
-                                <TableCell>Material *</TableCell>
-                                <TableCell>Specification *</TableCell>
-                                <TableCell>Quantity *</TableCell>
-                                <TableCell>Unit</TableCell>
-                                <TableCell>Weight</TableCell>
-                                <TableCell>Unit Price *</TableCell>
-                                <TableCell>Subtotal</TableCell>
-                                <TableCell>Remark</TableCell>
-                                <TableCell>Action</TableCell>
+                                <TableCell width="15%">Material *</TableCell>
+                                <TableCell width="15%">Specification *</TableCell>
+                                <TableCell width="10%">Quantity *</TableCell>
+                                <TableCell width="8%">Unit</TableCell>
+                                <TableCell width="10%">Weight</TableCell>
+                                <TableCell width="12%">Unit Price *</TableCell>
+                                <TableCell width="12%">Subtotal</TableCell>
+                                <TableCell width="12%">Remark</TableCell>
+                                <TableCell width="6%">Action</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
@@ -333,19 +345,31 @@ const CreateOrderPage = () => {
                                         </FormControl>
                                     </TableCell>
                                     <TableCell>
-                                        <FormControl fullWidth size="small">
-                                            <Select
-                                                value={item.specification}
-                                                onChange={(e) => handleItemChange(index, 'specification', e.target.value)}
-                                                displayEmpty
-                                                disabled={!item.material}
-                                            >
-                                                <MenuItem value="" disabled>Select Specification</MenuItem>
-                                                {getSpecificationOptions(item.material).map(spec => (
-                                                    <MenuItem key={spec} value={spec}>{spec}</MenuItem>
-                                                ))}
-                                            </Select>
-                                        </FormControl>
+                                        <Autocomplete
+                                            disabled={!item.material}
+                                            value={item.specification}
+                                            onChange={(event, newValue) => handleItemChange(index, 'specification', newValue || '')}
+                                            inputValue={item.searchSpec || ''}
+                                            onInputChange={(event, newInputValue) => {
+                                                const newItems = [...orderItems];
+                                                newItems[index].searchSpec = newInputValue;
+                                                setOrderItems(newItems);
+                                            }}
+                                            options={filterSpecifications(item.material, item.searchSpec || '')}
+                                            freeSolo
+                                            size="small"
+                                            renderInput={(params) => (
+                                                <TextField 
+                                                    {...params} 
+                                                    placeholder="Search specification" 
+                                                    variant="outlined"
+                                                    fullWidth
+                                                />
+                                            )}
+                                            ListboxProps={{
+                                                style: { maxHeight: '150px', overflow: 'auto' }
+                                            }}
+                                        />
                                     </TableCell>
                                     <TableCell>
                                         <TextField
@@ -387,6 +411,7 @@ const CreateOrderPage = () => {
                                             value={item.unit_price}
                                             onChange={(e) => handleItemChange(index, 'unit_price', e.target.value)}
                                             inputProps={{ min: 0, step: 0.01 }}
+                                            sx={{ minWidth: '120px' }}
                                         />
                                     </TableCell>
                                     <TableCell>
@@ -395,6 +420,7 @@ const CreateOrderPage = () => {
                                             size="small"
                                             fullWidth
                                             value={item.subtotal || ''}
+                                            sx={{ minWidth: '120px' }}
                                         />
                                     </TableCell>
                                     <TableCell>
@@ -421,7 +447,14 @@ const CreateOrderPage = () => {
                                     <Typography variant="subtitle1"><strong>Total:</strong></Typography>
                                 </TableCell>
                                 <TableCell>
-                                    <Typography variant="subtitle1"><strong>{calculateTotal()}</strong></Typography>
+                                    <TextField
+                                        disabled
+                                        size="small"
+                                        fullWidth
+                                        value={calculateTotal()}
+                                        sx={{ minWidth: '120px' }}
+                                        inputProps={{ style: { textAlign: 'right', fontWeight: 'bold' } }}
+                                    />
                                 </TableCell>
                                 <TableCell colSpan={2}></TableCell>
                             </TableRow>

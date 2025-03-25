@@ -182,18 +182,29 @@ router.put('/:id', async (req, res) => {
 
 /**
  * DELETE /api/orders/:id
- * 删除订单(可能需要管理员权限/密码?)
+ * 删除订单(需要管理员权限)
  */
 router.delete('/:id', async (req, res) => {
   try {
-    // Check if the order is paid, completed, etc.
+    // 检查用户权限
+    const user = req.user; // 假设通过中间件已经获取了用户信息
+    
+    // 如果没有用户信息或用户角色不是admin/superadmin，拒绝操作
+    if (!user || (user.role !== 'admin' && user.role !== 'superadmin')) {
+      return res.status(403).json({ 
+        success: false, 
+        msg: 'Permission denied. Only administrators can delete orders.' 
+      });
+    }
+    
+    // 权限验证通过，执行删除操作
     const count = await Order.destroy({ where: { id: req.params.id } });
     if (count === 0) {
       return res.status(404).json({ success: false, msg: 'Order not found' });
     }
     res.json({ success: true, msg: 'Order deleted successfully' });
   } catch (err) {
-    console.error(err);
+    console.error('Error deleting order:', err);
     res.status(500).json({ success: false, msg: 'Failed to delete order' });
   }
 });

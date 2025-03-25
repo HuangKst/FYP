@@ -19,9 +19,28 @@ import {
     Chip,
     FormControlLabel,
     Switch,
-    TextField
+    TextField,
+    Alert
 } from '@mui/material';
 import { fetchOrderById, updateOrderStatus, deleteOrder } from '../../api/orderApi';
+
+// 从localStorage获取当前用户信息
+const getCurrentUser = () => {
+    try {
+        const userStr = localStorage.getItem('user');
+        if (!userStr) return null;
+        return JSON.parse(userStr);
+    } catch (error) {
+        console.error('Error parsing user data:', error);
+        return null;
+    }
+};
+
+// 检查用户是否有权限删除订单
+const hasDeletePermission = (user) => {
+    if (!user) return false;
+    return user.role === 'admin' || user.role === 'superadmin';
+};
 
 const OrderDetail = ({ orderId, open, onClose, onStatusChange }) => {
     const [order, setOrder] = useState(null);
@@ -31,6 +50,12 @@ const OrderDetail = ({ orderId, open, onClose, onStatusChange }) => {
     const [isCompleted, setIsCompleted] = useState(false);
     const [remark, setRemark] = useState('');
     const [deleteConfirm, setDeleteConfirm] = useState(false);
+    const [error, setError] = useState('');
+    
+    // 获取当前用户
+    const currentUser = getCurrentUser();
+    // 检查是否有删除权限
+    const canDelete = hasDeletePermission(currentUser);
 
     // 加载订单详情
     useEffect(() => {
@@ -55,8 +80,9 @@ const OrderDetail = ({ orderId, open, onClose, onStatusChange }) => {
                     
                     console.log('Processed order data:', orderData); // 添加调试日志
                     setOrder(orderData);
-                    setIsPaid(orderData.is_paid === true);
-                    setIsCompleted(orderData.is_completed === true);
+                    // 确保状态值与数据库中的tinyint类型保持一致（1表示true，0表示false）
+                    setIsPaid(orderData.is_paid === 1 || orderData.is_paid === true);
+                    setIsCompleted(orderData.is_completed === 1 || orderData.is_completed === true);
                     setRemark(orderData.remark || '');
                 }
             } catch (error) {
@@ -76,8 +102,8 @@ const OrderDetail = ({ orderId, open, onClose, onStatusChange }) => {
         setUpdating(true);
         try {
             const response = await updateOrderStatus(orderId, {
-                is_paid: isPaid,
-                is_completed: isCompleted,
+                is_paid: isPaid ? 1 : 0, // 确保发送到后端的值是1或0，而不是true/false
+                is_completed: isCompleted ? 1 : 0,
                 remark
             });
             
@@ -98,7 +124,15 @@ const OrderDetail = ({ orderId, open, onClose, onStatusChange }) => {
     const handleDeleteOrder = async () => {
         if (!order) return;
         
+        // 再次检查权限
+        if (!canDelete) {
+            setError('您没有权限删除订单。只有管理员才能执行此操作。');
+            setDeleteConfirm(false);
+            return;
+        }
+        
         setUpdating(true);
+        setError('');
         try {
             const response = await deleteOrder(orderId);
             if (response.success) {
@@ -106,9 +140,12 @@ const OrderDetail = ({ orderId, open, onClose, onStatusChange }) => {
                 if (onStatusChange) onStatusChange();
                 // 关闭对话框
                 onClose();
+            } else {
+                setError(response.msg || '删除订单失败');
             }
         } catch (error) {
             console.error('Error deleting order:', error);
+            setError('删除订单时发生错误');
         } finally {
             setUpdating(false);
             setDeleteConfirm(false);
@@ -143,6 +180,11 @@ const OrderDetail = ({ orderId, open, onClose, onStatusChange }) => {
                     <Typography component="div">Order not found</Typography>
                 ) : (
                     <>
+                        {error && (
+                            <Alert severity="error" style={{ marginBottom: '15px' }}>
+                                {error}
+                            </Alert>
+                        )}
                         {/* 订单基本信息 */}
                         <Paper style={{ padding: '15px', marginBottom: '20px' }}>
                             <Grid container spacing={2}>
@@ -299,9 +341,11 @@ const OrderDetail = ({ orderId, open, onClose, onStatusChange }) => {
                     </>
                 ) : (
                     <>
-                        <Button onClick={() => setDeleteConfirm(true)} color="error" disabled={updating || loading || !order}>
-                            Delete Order
-                        </Button>
+                        {canDelete && (
+                            <Button onClick={() => setDeleteConfirm(true)} color="error" disabled={updating || loading || !order}>
+                                Delete Order
+                            </Button>
+                        )}
                         <Button onClick={onClose} disabled={updating}>
                             Close
                         </Button>
