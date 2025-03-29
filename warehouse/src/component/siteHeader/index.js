@@ -15,7 +15,7 @@ import {
 } from "@mui/material";
 import { Link, useNavigate } from "react-router-dom";
 import LogoutIcon from '@mui/icons-material/Logout';
-import logo from "../../picture/logo.webp";
+import logo from "../../picture/logo.png";
 import { AuthContext } from "../../contexts/authContext";
 
 const SiteHeader = () => {
