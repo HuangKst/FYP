@@ -16,6 +16,8 @@ import SiteHeader from "./component/siteHeader/index.js";
 import CustomerPage from "./pages/customerPage.js";
 import OrderPage from "./pages/orderPage.js";
 import CreateOrderPage from "./pages/createOrderPage.js";
+import EmployeePage from "./pages/employeePage.js";
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -47,6 +49,7 @@ const Layout = () => {
             {/* 管理员专属路由 */}
             <Route element={<AdminRoutes />}>   
               <Route path="/pending" element={<PendingPage/>} />
+              <Route path="/employee" element={<EmployeePage/>} />
             </Route>
           </Route>
         </Route>   

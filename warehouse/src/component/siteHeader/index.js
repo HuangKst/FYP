@@ -20,7 +20,7 @@ import { AuthContext } from "../../contexts/authContext";
 
 const SiteHeader = () => {
   const navigate = useNavigate();
-  const { handleLogout } = useContext(AuthContext);
+  const { handleLogout, role } = useContext(AuthContext);
   const [openLogoutDialog, setOpenLogoutDialog] = useState(false);
 
   const handleLogoutClick = () => {
@@ -37,6 +37,9 @@ const SiteHeader = () => {
     setOpenLogoutDialog(false);
   };
 
+  // 检查是否有管理员权限
+  const hasAdminPermission = role === 'admin' || role === 'boss';
+
   return (
     <AppBar position="static" sx={{ backgroundColor: "#333" }}>
       <Toolbar>
@@ -51,8 +54,16 @@ const SiteHeader = () => {
           <Button color="inherit" component={Link} to="/inventory">Inventory</Button>
           <Button color="inherit" component={Link} to="/orders">Orders</Button>
           <Button color="inherit" component={Link} to="/create-order">Create Order</Button>
-          <Button color="inherit" component={Link} to="/pending">Pending</Button>
           <Button color="inherit" component={Link} to="/customer">Customer</Button>
+          
+          {/* 只有管理员和老板可以看到这些按钮 */}
+          {hasAdminPermission && (
+            <>
+              <Button color="inherit" component={Link} to="/pending">Pending</Button>
+              <Button color="inherit" component={Link} to="/employee">Employee</Button>
+            </>
+          )}
+          
           <Tooltip title="Logout">
             <IconButton 
               color="inherit" 

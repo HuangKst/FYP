@@ -13,6 +13,7 @@
     "@testing-library/user-event": "^13.5.0",
     "axios": "^1.7.9",
     "css-select": "^5.1.0",
+    "date-fns": "^2.30.0",
     "nth-check": "^2.1.1",
     "postcss": "^8.5.1",
     "react": "^18.3.1",

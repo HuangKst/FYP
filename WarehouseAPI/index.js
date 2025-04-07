@@ -5,6 +5,7 @@ import cors from 'cors';
 import usersRouter from './routes/userRoutes.js';
 import defaultErrHandler from './errHandler/index.js';
 import authenticate from './authenticate/index.js';
+import adminAuth from './authenticate/adminAuth.js';
 import adminRouter from './routes/adminRoutes.js';
 import customerRoutes from './routes/customerRoutes.js';
 import orderRoutes from './routes/orderRoutes.js';
@@ -22,21 +23,17 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-
-
-
 // 路由
 app.use('/api/users', usersRouter); // 如果部分路由不需要认证，可直接使用
-app.use('/api/admin', authenticate,logger, adminRouter);
-app.use('/api/customers', authenticate,logger, customerRoutes);
-app.use('/api/orders', authenticate, logger,orderRoutes);
-app.use('/api/inventory', authenticate, logger,inventoryRoutes);
-app.use('/api/employees', authenticate, logger,employeeRoutes);
-app.use('/api/employee-leaves', authenticate,logger, employeeLeaveRoutes);
-app.use('/api/employee-overtimes', authenticate, logger,employeeOvertimeRoutes);
+app.use('/api/admin', authenticate, logger, adminRouter);
+app.use('/api/customers', authenticate, logger, customerRoutes);
+app.use('/api/orders', authenticate, logger, orderRoutes);
+app.use('/api/inventory', authenticate, logger, inventoryRoutes);
 
-
-
+// 员工相关路由需要管理员权限
+app.use('/api/employees', authenticate, adminAuth, logger, employeeRoutes);
+app.use('/api/employee-leaves', authenticate, adminAuth, logger, employeeLeaveRoutes);
+app.use('/api/employee-overtimes', authenticate, adminAuth, logger, employeeOvertimeRoutes);
 
 // 错误处理器
 app.use(defaultErrHandler);

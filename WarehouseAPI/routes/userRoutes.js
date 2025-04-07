@@ -104,51 +104,69 @@ async function registerUser(req, res) {
 
 // 登录用户
 async function authenticateUser(req, res) {
-  // 1. 查找用户
-  const user = await User.findByUserName(req.body.username);
-  if (!user) {
-    return res
-      .status(401)
-      .json({ success: false, msg: 'Authentication failed. User not found.' });
-  }
+  try {
+    // 1. 查找用户
+    const user = await User.findByUserName(req.body.username);
+    if (!user) {
+      return res
+        .status(401)
+        .json({ success: false, msg: 'Authentication failed. User not found.' });
+    }
 
-  // 2. 验证密码
-  const isMatch = await user.comparePassword(req.body.password);
-  if (!isMatch) {
-    return res
-      .status(401)
-      .json({ success: false, msg: 'Wrong password.' });
-  }
+    // 2. 验证密码
+    const isMatch = await user.comparePassword(req.body.password);
+    if (!isMatch) {
+      return res
+        .status(401)
+        .json({ success: false, msg: 'Wrong password.' });
+    }
 
-  // 3. 检查用户状态
-  if (user.status === 'pending') {
-    return res
-      .status(403)
-      .json({ success: false, msg: 'Your account is pending approval.' });
-  } else if (user.status === 'inactive') {
-    return res
-      .status(403)
-      .json({ success: false, msg: 'Your account was not approved.' });
-  } else if (user.status !== 'active') {
-    // 你也可以把其他情况都归为一个通用提示
-    return res
-      .status(403)
-      .json({ success: false, msg: 'Your account is unavailable.' });
-  }
+    // 3. 检查用户状态
+    if (user.status === 'pending') {
+      return res
+        .status(403)
+        .json({ success: false, msg: 'Your account is pending approval.' });
+    } else if (user.status === 'inactive') {
+      return res
+        .status(403)
+        .json({ success: false, msg: 'Your account was not approved.' });
+    } else if (user.status !== 'active') {
+      return res
+        .status(403)
+        .json({ success: false, msg: 'Your account is unavailable.' });
+    }
 
-  // 4. 若状态为 active，则生成 token 并返回
-  const token = jwt.sign(
-    { username: user.username, userId: user.id },
-    process.env.SECRET
-  );
-  return res.status(200).json({
-    success: true,
-    token:  token,
-    user: { userId: user.id,
-      username:user.username,
-       userStatus:user.status, 
-       userRole:user.role }
-  });
+    // 4. 生成 token 并返回用户信息
+    const token = jwt.sign(
+      { 
+        username: user.username, 
+        userId: user.id,
+        userRole: user.role,  // 添加角色信息到 token
+        userStatus: user.status
+      },
+      process.env.SECRET
+    );
+
+    // 返回统一的用户信息格式
+    const userInfo = {
+      userId: user.id,
+      username: user.username,
+      userStatus: user.status,
+      userRole: user.role  // 使用数据库中的 role 字段
+    };
+
+    return res.status(200).json({
+      success: true,
+      token: token,
+      user: userInfo
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    return res.status(500).json({ 
+      success: false, 
+      msg: 'Internal server error during login.' 
+    });
+  }
 }
 
 
