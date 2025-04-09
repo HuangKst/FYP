@@ -59,7 +59,6 @@ const SiteHeader = () => {
           {/* 只有管理员和老板可以看到这些按钮 */}
           {hasAdminPermission && (
             <>
-              <Button color="inherit" component={Link} to="/pending">Pending</Button>
               <Button color="inherit" component={Link} to="/employee">Employee</Button>
             </>
           )}

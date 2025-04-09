@@ -6,7 +6,6 @@ import { QueryClientProvider, QueryClient } from "react-query";
 import { ReactQueryDevtools } from 'react-query/devtools';
 import ProtectedRoutes from "./protectRoutes";
 import AdminRoutes from "./AdminRoutes.js";
-import PendingPage from "./pages/PendingPage.js"
 import LoginPage from "./pages/LoginPage";
 import AuthContextProvider from "./contexts/authContext.js";
 import SignUpPage from "./pages/signUpPage.js";
@@ -48,7 +47,6 @@ const Layout = () => {
             <Route path="/create-order" element={<CreateOrderPage/>} />
             {/* 管理员专属路由 */}
             <Route element={<AdminRoutes />}>   
-              <Route path="/pending" element={<PendingPage/>} />
               <Route path="/employee" element={<EmployeePage/>} />
             </Route>
           </Route>

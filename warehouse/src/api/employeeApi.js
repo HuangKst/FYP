@@ -90,3 +90,25 @@ export const deleteEmployeeLeave = async (leaveId) => {
     return handleError(error, '删除请假记录失败');
   }
 };
+
+// 获取待审批用户列表
+export const fetchPendingUsers = async () => {
+  try {
+    const response = await axiosInstance.get('/admin/pending-users');
+    return response.data;
+  } catch (error) {
+    return handleError(error, '获取待审批用户失败');
+  }
+};
+
+// 审批用户
+export const approveUser = async (userId, isApproved) => {
+  try {
+    const response = await axiosInstance.post(`/admin/approve-user/${userId}`, {
+      approved: isApproved
+    });
+    return response.data;
+  } catch (error) {
+    return handleError(error, '审批用户失败');
+  }
+};
