@@ -112,3 +112,13 @@ export const approveUser = async (userId, isApproved) => {
     return handleError(error, '审批用户失败');
   }
 };
+
+// 获取单个员工信息
+export const getEmployeeById = async (employeeId) => {
+  try {
+    const response = await axiosInstance.get(`/employees/${employeeId}`);
+    return response.data;
+  } catch (error) {
+    return handleError(error, '获取员工信息失败');
+  }
+};

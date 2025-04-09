@@ -16,6 +16,7 @@ import CustomerPage from "./pages/customerPage.js";
 import OrderPage from "./pages/orderPage.js";
 import CreateOrderPage from "./pages/createOrderPage.js";
 import EmployeePage from "./pages/employeePage.js";
+import EmployeeDetailPage from "./pages/employeeDetailPage.js";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -48,6 +49,7 @@ const Layout = () => {
             {/* 管理员专属路由 */}
             <Route element={<AdminRoutes />}>   
               <Route path="/employee" element={<EmployeePage/>} />
+              <Route path="/employee/:id" element={<EmployeeDetailPage/>} />
             </Route>
           </Route>
         </Route>   
