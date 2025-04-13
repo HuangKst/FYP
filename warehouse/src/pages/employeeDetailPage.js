@@ -97,7 +97,7 @@ const EmployeeDetailPage = () => {
     let filtered = [...overtimes];
     if (overtimeFilter.startDate && overtimeFilter.endDate) {
       filtered = overtimes.filter(overtime => {
-        const overtimeDate = new Date(overtime.date);
+        const overtimeDate = new Date(overtime.overtime_date);
         const startDate = new Date(overtimeFilter.startDate);
         const endDate = new Date(overtimeFilter.endDate);
         return overtimeDate >= startDate && overtimeDate <= endDate;

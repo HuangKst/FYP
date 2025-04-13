@@ -62,3 +62,14 @@ export const deleteOrder = async (orderId) => {
     return { success: false, msg: 'Failed to delete order' };
   }
 };
+
+// 更新订单
+export const updateOrder = async (orderId, updateData) => {
+  try {
+    const response = await instance.put(`/orders/${orderId}/edit`, updateData);
+    return response.data;
+  } catch (error) {
+    console.error('Error updating order:', error);
+    return { success: false, msg: 'Failed to update order' };
+  }
+};

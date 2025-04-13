@@ -5,6 +5,7 @@ import Customer from '../Models/customerModel.js';
 import User from '../Models/userModel.js';
 import Inventory from '../Models/inventoryModel.js';
 import { Op } from 'sequelize';
+import { sequelize } from '../db/index.js';
 
 const router = express.Router();
 
@@ -190,22 +191,209 @@ router.delete('/:id', async (req, res) => {
     const user = req.user; // 假设通过中间件已经获取了用户信息
     
     // 如果没有用户信息或用户角色不是admin/superadmin，拒绝操作
-    if (!user || (user.role !== 'admin' && user.role !== 'superadmin')) {
+    if (!user || (user.userRole !== 'admin' && user.userRole !== 'superadmin')) {
       return res.status(403).json({ 
         success: false, 
         msg: 'Permission denied. Only administrators can delete orders.' 
       });
     }
     
-    // 权限验证通过，执行删除操作
-    const count = await Order.destroy({ where: { id: req.params.id } });
-    if (count === 0) {
+    // 在删除前先获取订单信息和订单项目
+    const orderId = req.params.id;
+    const order = await Order.findByPk(orderId, {
+      include: [{ model: OrderItem }]
+    });
+    
+    if (!order) {
       return res.status(404).json({ success: false, msg: 'Order not found' });
     }
+    
+    // 如果是销售订单，恢复库存
+    if (order.order_type === 'SALES' && order.OrderItems && order.OrderItems.length > 0) {
+      for (const item of order.OrderItems) {
+        // 找到对应的库存项
+        const inventory = await Inventory.findOne({
+          where: { 
+            material: item.material,
+            specification: item.specification
+          }
+        });
+        
+        if (inventory) {
+          // 计算新库存数量
+          const newQuantity = parseFloat(inventory.quantity) + parseFloat(item.quantity || 0);
+          // 更新库存
+          await inventory.update({ quantity: newQuantity });
+          console.log(`Restored inventory for ${item.material} (${item.specification}): +${item.quantity}`);
+        }
+      }
+    }
+    
+    // 删除订单（关联的OrderItems会通过外键级联删除）
+    await order.destroy();
+    
     res.json({ success: true, msg: 'Order deleted successfully' });
   } catch (err) {
     console.error('Error deleting order:', err);
     res.status(500).json({ success: false, msg: 'Failed to delete order' });
+  }
+});
+
+/**
+ * PUT /api/orders/:id/edit
+ * 编辑订单信息和订单项（需要管理员权限）
+ */
+router.put('/:id/edit', async (req, res) => {
+  try {
+    // 检查用户权限
+    const user = req.user;
+    
+    // 如果没有用户信息或用户角色不是admin/boss，拒绝操作
+    if (!user || (user.userRole !== 'admin' && user.userRole !== 'boss')) {
+      return res.status(403).json({ 
+        success: false, 
+        msg: 'Permission denied. Only administrators can edit orders.' 
+      });
+    }
+    
+    const orderId = req.params.id;
+    const { customerId, items, remark } = req.body;
+    
+    // 获取原订单信息
+    const order = await Order.findByPk(orderId, {
+      include: [{ model: OrderItem }]
+    });
+    
+    if (!order) {
+      return res.status(404).json({ success: false, msg: 'Order not found' });
+    }
+    
+    // 开始数据库事务
+    const t = await sequelize.transaction();
+    
+    try {
+      // 1. 更新订单基本信息
+      await order.update({
+        customer_id: customerId,
+        remark
+      }, { transaction: t });
+      
+      // 2. 处理订单项
+      const originalItems = order.OrderItems || [];
+      const newItems = items || [];
+      
+      // 存储所有需要更新库存的信息
+      const inventoryUpdates = [];
+      
+      // 处理每个订单项
+      for (const item of newItems) {
+        if (item.id) {
+          // 更新现有订单项
+          const originalItem = originalItems.find(oi => oi.id === item.id);
+          if (originalItem) {
+            // 如果是销售订单，记录库存变化
+            if (order.order_type === 'SALES') {
+              // 计算数量差异
+              const quantityDiff = parseFloat(item.quantity) - parseFloat(originalItem.quantity);
+              
+              if (quantityDiff !== 0) {
+                inventoryUpdates.push({
+                  material: item.material,
+                  specification: item.specification,
+                  quantityChange: -quantityDiff // 负数表示库存减少
+                });
+              }
+            }
+            
+            // 更新订单项
+            await originalItem.update({
+              material: item.material,
+              specification: item.specification,
+              quantity: item.quantity,
+              unit: item.unit,
+              weight: item.weight,
+              unit_price: item.unit_price,
+              subtotal: item.subtotal,
+              remark: item.remark
+            }, { transaction: t });
+          }
+        } else {
+          // 创建新订单项
+          await OrderItem.create({
+            order_id: orderId,
+            material: item.material,
+            specification: item.specification,
+            quantity: item.quantity,
+            unit: item.unit,
+            weight: item.weight,
+            unit_price: item.unit_price,
+            subtotal: item.subtotal,
+            remark: item.remark
+          }, { transaction: t });
+          
+          // 如果是销售订单，记录库存减少
+          if (order.order_type === 'SALES') {
+            inventoryUpdates.push({
+              material: item.material,
+              specification: item.specification,
+              quantityChange: -parseFloat(item.quantity) // 负数表示库存减少
+            });
+          }
+        }
+      }
+      
+      // 3. 删除不再需要的订单项
+      const existingItemIds = newItems.filter(item => item.id).map(item => item.id);
+      const itemsToDelete = originalItems.filter(item => !existingItemIds.includes(item.id));
+      
+      for (const item of itemsToDelete) {
+        // 如果是销售订单，记录库存增加（删除的项目）
+        if (order.order_type === 'SALES') {
+          inventoryUpdates.push({
+            material: item.material,
+            specification: item.specification,
+            quantityChange: parseFloat(item.quantity) // 正数表示库存增加
+          });
+        }
+        
+        await item.destroy({ transaction: t });
+      }
+      
+      // 4. 更新总金额
+      const totalPrice = newItems.reduce((sum, item) => sum + parseFloat(item.subtotal), 0);
+      await order.update({ total_price: totalPrice.toFixed(2) }, { transaction: t });
+      
+      // 5. 更新库存
+      for (const update of inventoryUpdates) {
+        const inventory = await Inventory.findOne({
+          where: { 
+            material: update.material, 
+            specification: update.specification 
+          }
+        }, { transaction: t });
+        
+        if (inventory) {
+          const newQuantity = parseFloat(inventory.quantity) + update.quantityChange;
+          await inventory.update({ quantity: newQuantity }, { transaction: t });
+          console.log(`Updated inventory for ${update.material} (${update.specification}): ${update.quantityChange > 0 ? '+' : ''}${update.quantityChange}`);
+        }
+      }
+      
+      // 提交事务
+      await t.commit();
+      
+      res.json({ 
+        success: true, 
+        msg: 'Order updated successfully'
+      });
+    } catch (error) {
+      // 回滚事务
+      await t.rollback();
+      throw error;
+    }
+  } catch (err) {
+    console.error('Error updating order:', err);
+    res.status(500).json({ success: false, msg: 'Failed to update order' });
   }
 });
 

@@ -15,6 +15,8 @@ import SiteHeader from "./component/siteHeader/index.js";
 import CustomerPage from "./pages/customerPage.js";
 import OrderPage from "./pages/orderPage.js";
 import CreateOrderPage from "./pages/createOrderPage.js";
+import OrderDetailPage from "./pages/orderDetail.js";
+import EditOrderPage from "./pages/editOrderPage.js";
 import EmployeePage from "./pages/employeePage.js";
 import EmployeeDetailPage from "./pages/employeeDetailPage.js";
 
@@ -45,6 +47,8 @@ const Layout = () => {
             <Route path="/inventory" element={<InventoryPage/>} />
             <Route path="/customer" element={<CustomerPage/>} />
             <Route path="/orders" element={<OrderPage/>} />
+            <Route path="/order/:orderId" element={<OrderDetailPage/>} />
+            <Route path="/edit-order/:orderId" element={<EditOrderPage/>} />
             <Route path="/create-order" element={<CreateOrderPage/>} />
             {/* 管理员专属路由 */}
             <Route element={<AdminRoutes />}>   

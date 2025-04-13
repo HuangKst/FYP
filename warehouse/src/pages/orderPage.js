@@ -22,13 +22,11 @@ import {
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { fetchOrders } from '../api/orderApi';
-import OrderDetail from '../component/orderDetail';
 
 const OrderPage = () => {
     const navigate = useNavigate();
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [selectedOrderId, setSelectedOrderId] = useState(null);
     
     // 筛选条件
     const [orderType, setOrderType] = useState('');
@@ -37,14 +35,9 @@ const OrderPage = () => {
     const [customerName, setCustomerName] = useState('');
     const [orderNumber, setOrderNumber] = useState('');
 
-    // 打开订单详情的处理函数
+    // 导航到订单详情页面
     const handleOpenDetail = (orderId) => {
-        setSelectedOrderId(orderId);
-    };
-
-    // 关闭订单详情的处理函数
-    const handleCloseDetail = () => {
-        setSelectedOrderId(null);
+        navigate(`/order/${orderId}`);
     };
 
     // 加载订单数据
@@ -245,7 +238,7 @@ const OrderPage = () => {
                                         {/* 销售单特有字段 */}
                                         <TableCell>Payment Status</TableCell>
                                         <TableCell>Completion Status</TableCell>
-                                        <TableCell>User ID</TableCell>
+                                        <TableCell>Creator</TableCell>
                                         <TableCell>Actions</TableCell>
                                     </TableRow>
                                 </TableHead>
@@ -273,9 +266,9 @@ const OrderPage = () => {
                                                 <TableCell>{order.order_number}</TableCell>
                                                 <TableCell>{new Date(order.created_at).toLocaleDateString()}</TableCell>
                                                 <TableCell>
-                                                    {order.customer ? 
-                                                        (typeof order.customer === 'object' ? 
-                                                            order.customer.name : order.customer) 
+                                                    {order.Customer ? 
+                                                        (typeof order.Customer === 'object' ? 
+                                                            order.Customer.name : order.Customer) 
                                                         : (order.customer_id || '未知')
                                                     }
                                                 </TableCell>
@@ -294,11 +287,11 @@ const OrderPage = () => {
                                                         '-'}
                                                 </TableCell>
                                                 <TableCell>
-                                                    {order.user ? (
-                                                        typeof order.user === 'object' ? order.user.id : order.user
-                                                    ) : (
-                                                        order.user_id || '未知'
-                                                    )}
+                                                    {order.User ? 
+                                                        (typeof order.User === 'object' ? 
+                                                            order.User.username : order.User) 
+                                                        : (order.user_id || '未知')
+                                                    }
                                                 </TableCell>
                                                 <TableCell>
                                                     <Button 
@@ -322,16 +315,6 @@ const OrderPage = () => {
                     </Paper>
                 </Box>
             </Box>
-
-            {/* 订单详情对话框 */}
-            {selectedOrderId && (
-                <OrderDetail 
-                    orderId={selectedOrderId} 
-                    open={!!selectedOrderId} 
-                    onClose={handleCloseDetail}
-                    onStatusChange={loadOrders}
-                />
-            )}
         </Container>
     );
 };
