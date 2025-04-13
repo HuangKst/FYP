@@ -17,7 +17,8 @@ import {
     InputLabel,
     FormControlLabel,
     Checkbox,
-    CircularProgress
+    CircularProgress,
+    Box
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { fetchOrders } from '../api/orderApi';
@@ -118,184 +119,209 @@ const OrderPage = () => {
     };
 
     return (
-        <Container>
-            <Typography variant="h4" gutterBottom>Order Management</Typography>
+        <Container maxWidth={false} sx={{ height: 'calc(100vh - 64px)', p: 0, mt: '64px' }}>
+            <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                <Paper 
+                    elevation={0} 
+                    sx={{ 
+                        p: 3, 
+                        backgroundColor: 'primary.main',
+                        color: 'white',
+                        borderRadius: 0,
+                        position: 'relative',
+                        zIndex: 1
+                    }}
+                >
+                    <Typography variant="h4" component="h1" gutterBottom>
+                        Order Management
+                    </Typography>
+                    <Typography variant="subtitle1" sx={{ opacity: 0.8 }}>
+                        Manage and track all orders, including quotes and sales orders
+                    </Typography>
+                </Paper>
 
-            {/* 筛选区域 */}
-            <Paper style={{ padding: '15px', marginBottom: '20px' }}>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', marginBottom: '15px' }}>
-                    {/* 订单号搜索 */}
-                    <TextField
-                        label="Order Number"
-                        value={orderNumber}
-                        onChange={(e) => setOrderNumber(e.target.value)}
-                        style={{ minWidth: '150px' }}
-                    />
-                    
-                    {/* 订单类型选择 */}
-                    <FormControl style={{ minWidth: '150px' }}>
-                        <InputLabel>Order Type</InputLabel>
-                        <Select
-                            value={orderType}
-                            onChange={(e) => setOrderType(e.target.value)}
-                            label="Order Type"
-                        >
-                            <MenuItem value="">All</MenuItem>
-                            <MenuItem value="QUOTE">Quote</MenuItem>
-                            <MenuItem value="SALES">Sales</MenuItem>
-                        </Select>
-                    </FormControl>
-                    
-                    {/* 客户名搜索 */}
-                    <TextField
-                        label="Customer Name"
-                        value={customerName}
-                        onChange={(e) => setCustomerName(e.target.value)}
-                        style={{ minWidth: '150px' }}
-                    />
-
-                    {/* 付款状态筛选 - 仅销售单可见 */}
-                    {(orderType === 'SALES' || orderType === '') && (
-                        <FormControlLabel
-                            control={
-                                <Checkbox
-                                    checked={isPaid === true}
-                                    indeterminate={isPaid === null}
-                                    onChange={(e) => {
-                                        if (isPaid === null) setIsPaid(true);
-                                        else if (isPaid === true) setIsPaid(false);
-                                        else setIsPaid(null);
-                                    }}
+                <Box sx={{ flex: 1, p: 3, backgroundColor: '#f5f5f5', overflowY: 'auto' }}>
+                    {/* 筛选区域 */}
+                    <Paper sx={{ p: 3, mb: 3, borderRadius: 2 }}>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                                {/* 订单号搜索 */}
+                                <TextField
+                                    label="Order Number"
+                                    value={orderNumber}
+                                    onChange={(e) => setOrderNumber(e.target.value)}
+                                    sx={{ minWidth: '150px' }}
                                 />
-                            }
-                            label="Paid"
-                        />
-                    )}
-
-                    {/* 完成状态筛选 - 仅销售单可见 */}
-                    {(orderType === 'SALES' || orderType === '') && (
-                        <FormControlLabel
-                            control={
-                                <Checkbox
-                                    checked={isCompleted === true}
-                                    indeterminate={isCompleted === null}
-                                    onChange={(e) => {
-                                        if (isCompleted === null) setIsCompleted(true);
-                                        else if (isCompleted === true) setIsCompleted(false);
-                                        else setIsCompleted(null);
-                                    }}
+                                
+                                {/* 订单类型选择 */}
+                                <FormControl sx={{ minWidth: '150px' }}>
+                                    <InputLabel>Order Type</InputLabel>
+                                    <Select
+                                        value={orderType}
+                                        onChange={(e) => setOrderType(e.target.value)}
+                                        label="Order Type"
+                                    >
+                                        <MenuItem value="">All</MenuItem>
+                                        <MenuItem value="QUOTE">Quote</MenuItem>
+                                        <MenuItem value="SALES">Sales</MenuItem>
+                                    </Select>
+                                </FormControl>
+                                
+                                {/* 客户名搜索 */}
+                                <TextField
+                                    label="Customer Name"
+                                    value={customerName}
+                                    onChange={(e) => setCustomerName(e.target.value)}
+                                    sx={{ minWidth: '150px' }}
                                 />
-                            }
-                            label="Completed"
-                        />
-                    )}
-                </div>
 
-                {/* 操作按钮 */}
-                <div style={{ display: 'flex', gap: '10px' }}>
-                    <Button variant="contained" color="primary" onClick={handleSearch}>
-                        Search
-                    </Button>
-                    <Button variant="outlined" onClick={handleReset}>
-                        Reset
-                    </Button>
-                    <Button 
-                        variant="contained" 
-                        color="secondary" 
-                        onClick={() => navigate('/create-order')}
-                    >
-                        Create Order
-                    </Button>
-                </div>
-            </Paper>
-
-            {/* 订单列表 */}
-            <TableContainer component={Paper}>
-                <Table>
-                    <TableHead>
-                        <TableRow>
-                            <TableCell>Order Number</TableCell>
-                            <TableCell>Date</TableCell>
-                            <TableCell>Customer</TableCell>
-                            <TableCell>Amount</TableCell>
-                            <TableCell>Type</TableCell>
-                            {/* 销售单特有字段 */}
-                            <TableCell>Payment Status</TableCell>
-                            <TableCell>Completion Status</TableCell>
-                            <TableCell>User ID</TableCell>
-                            <TableCell>Actions</TableCell>
-                        </TableRow>
-                    </TableHead>
-                    <TableBody>
-                        {loading ? (
-                            <TableRow>
-                                <TableCell colSpan={8} align="center">
-                                    <CircularProgress />
-                                </TableCell>
-                            </TableRow>
-                        ) : orders.length === 0 ? (
-                            <TableRow>
-                                <TableCell colSpan={8} align="center">
-                                    No Data
-                                </TableCell>
-                            </TableRow>
-                        ) : (
-                            orders.map((order) => (
-                                <TableRow 
-                                    key={order.id}
-                                    hover
-                                    onClick={() => handleOpenDetail(order.id)}
-                                    style={{ cursor: 'pointer' }}
-                                >
-                                    <TableCell>{order.order_number}</TableCell>
-                                    <TableCell>{new Date(order.created_at).toLocaleDateString()}</TableCell>
-                                    <TableCell>
-                                        {order.customer ? 
-                                            (typeof order.customer === 'object' ? 
-                                                order.customer.name : order.customer) 
-                                            : (order.customer_id || '未知')
+                                {/* 付款状态筛选 - 仅销售单可见 */}
+                                {(orderType === 'SALES' || orderType === '') && (
+                                    <FormControlLabel
+                                        control={
+                                            <Checkbox
+                                                checked={isPaid === true}
+                                                indeterminate={isPaid === null}
+                                                onChange={(e) => {
+                                                    if (isPaid === null) setIsPaid(true);
+                                                    else if (isPaid === true) setIsPaid(false);
+                                                    else setIsPaid(null);
+                                                }}
+                                            />
                                         }
-                                    </TableCell>
-                                    <TableCell>{getTotalAmount(order)}</TableCell>
-                                    <TableCell>
-                                        {order.order_type === 'QUOTE' ? 'Quote' : 'Sales'}
-                                    </TableCell>
-                                    <TableCell>
-                                        {order.order_type === 'SALES' ? 
-                                            ((order.is_paid === 1 || order.is_paid === true) ? 'Paid' : 'Unpaid') : 
-                                            '-'}
-                                    </TableCell>
-                                    <TableCell>
-                                        {order.order_type === 'SALES' ? 
-                                            ((order.is_completed === 1 || order.is_completed === true) ? 'Completed' : 'Pending') : 
-                                            '-'}
-                                    </TableCell>
-                                    <TableCell>
-                                        {order.user ? (
-                                            typeof order.user === 'object' ? order.user.id : order.user
-                                        ) : (
-                                            order.user_id || '未知'
-                                        )}
-                                    </TableCell>
-                                    <TableCell>
-                                        <Button 
-                                            size="small" 
-                                            variant="contained" 
-                                            color="primary"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleOpenDetail(order.id);
-                                            }}
-                                        >
-                                            View
-                                        </Button>
-                                    </TableCell>
-                                </TableRow>
-                            ))
-                        )}
-                    </TableBody>
-                </Table>
-            </TableContainer>
+                                        label="Paid"
+                                    />
+                                )}
+
+                                {/* 完成状态筛选 - 仅销售单可见 */}
+                                {(orderType === 'SALES' || orderType === '') && (
+                                    <FormControlLabel
+                                        control={
+                                            <Checkbox
+                                                checked={isCompleted === true}
+                                                indeterminate={isCompleted === null}
+                                                onChange={(e) => {
+                                                    if (isCompleted === null) setIsCompleted(true);
+                                                    else if (isCompleted === true) setIsCompleted(false);
+                                                    else setIsCompleted(null);
+                                                }}
+                                            />
+                                        }
+                                        label="Completed"
+                                    />
+                                )}
+                            </Box>
+
+                            {/* 操作按钮 */}
+                            <Box sx={{ display: 'flex', gap: 2 }}>
+                                <Button variant="contained" color="primary" onClick={handleSearch}>
+                                    Search
+                                </Button>
+                                <Button variant="outlined" onClick={handleReset}>
+                                    Reset
+                                </Button>
+                                <Button 
+                                    variant="contained" 
+                                    color="secondary" 
+                                    onClick={() => navigate('/create-order')}
+                                >
+                                    Create Order
+                                </Button>
+                            </Box>
+                        </Box>
+                    </Paper>
+
+                    {/* 订单列表 */}
+                    <Paper sx={{ borderRadius: 2 }}>
+                        <TableContainer>
+                            <Table>
+                                <TableHead>
+                                    <TableRow>
+                                        <TableCell>Order Number</TableCell>
+                                        <TableCell>Date</TableCell>
+                                        <TableCell>Customer</TableCell>
+                                        <TableCell>Amount</TableCell>
+                                        <TableCell>Type</TableCell>
+                                        {/* 销售单特有字段 */}
+                                        <TableCell>Payment Status</TableCell>
+                                        <TableCell>Completion Status</TableCell>
+                                        <TableCell>User ID</TableCell>
+                                        <TableCell>Actions</TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {loading ? (
+                                        <TableRow>
+                                            <TableCell colSpan={8} align="center">
+                                                <CircularProgress />
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : orders.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={8} align="center">
+                                                No Data
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        orders.map((order) => (
+                                            <TableRow 
+                                                key={order.id}
+                                                hover
+                                                onClick={() => handleOpenDetail(order.id)}
+                                                style={{ cursor: 'pointer' }}
+                                            >
+                                                <TableCell>{order.order_number}</TableCell>
+                                                <TableCell>{new Date(order.created_at).toLocaleDateString()}</TableCell>
+                                                <TableCell>
+                                                    {order.customer ? 
+                                                        (typeof order.customer === 'object' ? 
+                                                            order.customer.name : order.customer) 
+                                                        : (order.customer_id || '未知')
+                                                    }
+                                                </TableCell>
+                                                <TableCell>{getTotalAmount(order)}</TableCell>
+                                                <TableCell>
+                                                    {order.order_type === 'QUOTE' ? 'Quote' : 'Sales'}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {order.order_type === 'SALES' ? 
+                                                        ((order.is_paid === 1 || order.is_paid === true) ? 'Paid' : 'Unpaid') : 
+                                                        '-'}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {order.order_type === 'SALES' ? 
+                                                        ((order.is_completed === 1 || order.is_completed === true) ? 'Completed' : 'Pending') : 
+                                                        '-'}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {order.user ? (
+                                                        typeof order.user === 'object' ? order.user.id : order.user
+                                                    ) : (
+                                                        order.user_id || '未知'
+                                                    )}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Button 
+                                                        size="small" 
+                                                        variant="contained" 
+                                                        color="primary"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleOpenDetail(order.id);
+                                                        }}
+                                                    >
+                                                        View
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    </Paper>
+                </Box>
+            </Box>
 
             {/* 订单详情对话框 */}
             {selectedOrderId && (

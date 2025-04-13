@@ -25,7 +25,8 @@ import {
     List,
     ListItem,
     ListItemText,
-    Divider
+    Divider,
+    Box
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
@@ -284,233 +285,256 @@ const CreateOrderPage = () => {
     };
 
     return (
-        <Container>
-            <Typography variant="h4" gutterBottom>Create New Order</Typography>
-            
-            {/* 订单基本信息 */}
-            <Paper style={{ padding: '20px', marginBottom: '20px' }}>
-                <Typography variant="h6" gutterBottom>Order Information</Typography>
-                <Grid container spacing={3}>
-                    <Grid item xs={12} md={6}>
-                        <FormControl fullWidth>
-                            <InputLabel>Order Type *</InputLabel>
-                            <Select
-                                value={orderType}
-                                onChange={(e) => setOrderType(e.target.value)}
-                                label="Order Type *"
-                            >
-                                <MenuItem value="QUOTE">Quote</MenuItem>
-                                <MenuItem value="SALES">Sales</MenuItem>
-                            </Select>
-                        </FormControl>
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                        <FormControl fullWidth>
-                            <InputLabel>Customer *</InputLabel>
-                            <Select
-                                value={customerId}
-                                onChange={(e) => setCustomerId(e.target.value)}
-                                label="Customer *"
-                            >
-                                {customers.map(customer => (
-                                    <MenuItem key={customer.id} value={customer.id}>
-                                        {customer.name}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
-                    </Grid>
-                    <Grid item xs={12}>
-                        <TextField
-                            label="Remark"
-                            multiline
-                            rows={2}
-                            fullWidth
-                            value={remark}
-                            onChange={(e) => setRemark(e.target.value)}
-                        />
-                    </Grid>
-                </Grid>
-            </Paper>
-            
-            {/* 订单项目列表 */}
-            <Paper style={{ padding: '20px', marginBottom: '20px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                    <Typography variant="h6">Order Items</Typography>
-                    <Button 
-                        startIcon={<AddIcon />}
-                        onClick={handleAddItem}
-                        variant="outlined"
-                    >
-                        Add Item
-                    </Button>
-                </div>
-                
-                <TableContainer>
-                    <Table>
-                        <TableHead>
-                            <TableRow>
-                                <TableCell width="15%">Material *</TableCell>
-                                <TableCell width="15%">Specification *</TableCell>
-                                <TableCell width="10%">Quantity *</TableCell>
-                                <TableCell width="8%">Unit</TableCell>
-                                <TableCell width="10%">Weight</TableCell>
-                                <TableCell width="12%">Unit Price *</TableCell>
-                                <TableCell width="12%">Subtotal</TableCell>
-                                <TableCell width="12%">Remark</TableCell>
-                                <TableCell width="6%">Action</TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {orderItems.map((item, index) => (
-                                <TableRow key={index}>
-                                    <TableCell>
-                                        <FormControl fullWidth size="small">
-                                            <Select
-                                                value={item.material}
-                                                onChange={(e) => handleItemChange(index, 'material', e.target.value)}
-                                                displayEmpty
-                                            >
-                                                <MenuItem value="" disabled>Select Material</MenuItem>
-                                                {getMaterialOptions().map(material => (
-                                                    <MenuItem key={material} value={material}>{material}</MenuItem>
-                                                ))}
-                                            </Select>
-                                        </FormControl>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Autocomplete
-                                            disabled={!item.material}
-                                            value={item.specification}
-                                            onChange={(event, newValue) => handleItemChange(index, 'specification', newValue || '')}
-                                            inputValue={item.searchSpec || ''}
-                                            onInputChange={(event, newInputValue) => {
-                                                const newItems = [...orderItems];
-                                                newItems[index].searchSpec = newInputValue;
-                                                setOrderItems(newItems);
-                                            }}
-                                            options={filterSpecifications(item.material, item.searchSpec || '')}
-                                            freeSolo
-                                            size="small"
-                                            renderInput={(params) => (
-                                                <TextField 
-                                                    {...params} 
-                                                    placeholder="Search specification" 
-                                                    variant="outlined"
-                                                    fullWidth
-                                                />
-                                            )}
-                                            ListboxProps={{
-                                                style: { maxHeight: '150px', overflow: 'auto' }
-                                            }}
-                                        />
-                                    </TableCell>
-                                    <TableCell>
-                                        <TextField
-                                            type="number"
-                                            size="small"
-                                            fullWidth
-                                            value={item.quantity}
-                                            onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
-                                            inputProps={{ min: 0 }}
-                                        />
-                                    </TableCell>
-                                    <TableCell>
-                                        <FormControl fullWidth size="small">
-                                            <Select
-                                                value={item.unit}
-                                                onChange={(e) => handleItemChange(index, 'unit', e.target.value)}
-                                            >
-                                                <MenuItem value="piece">Piece</MenuItem>
-                                                <MenuItem value="kg">Kilogram</MenuItem>
-                                                <MenuItem value="m">Meter</MenuItem>
-                                            </Select>
-                                        </FormControl>
-                                    </TableCell>
-                                    <TableCell>
-                                        <TextField
-                                            type="number"
-                                            size="small"
-                                            fullWidth
-                                            value={item.weight}
-                                            onChange={(e) => handleItemChange(index, 'weight', e.target.value)}
-                                            inputProps={{ min: 0, step: 0.01 }}
-                                        />
-                                    </TableCell>
-                                    <TableCell>
-                                        <TextField
-                                            type="number"
-                                            size="small"
-                                            fullWidth
-                                            value={item.unit_price}
-                                            onChange={(e) => handleItemChange(index, 'unit_price', e.target.value)}
-                                            inputProps={{ min: 0, step: 0.01 }}
-                                            sx={{ minWidth: '120px' }}
-                                        />
-                                    </TableCell>
-                                    <TableCell>
-                                        <TextField
-                                            disabled
-                                            size="small"
-                                            fullWidth
-                                            value={item.subtotal || ''}
-                                            sx={{ minWidth: '120px' }}
-                                        />
-                                    </TableCell>
-                                    <TableCell>
-                                        <TextField
-                                            size="small"
-                                            fullWidth
-                                            value={item.remark || ''}
-                                            onChange={(e) => handleItemChange(index, 'remark', e.target.value)}
-                                        />
-                                    </TableCell>
-                                    <TableCell>
-                                        <IconButton 
-                                            color="error" 
-                                            onClick={() => handleDeleteItem(index)}
-                                            disabled={orderItems.length <= 1}
-                                        >
-                                            <DeleteIcon />
-                                        </IconButton>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                            <TableRow>
-                                <TableCell colSpan={6} align="right">
-                                    <Typography variant="subtitle1"><strong>Total:</strong></Typography>
-                                </TableCell>
-                                <TableCell>
-                                    <TextField
-                                        disabled
-                                        size="small"
-                                        fullWidth
-                                        value={calculateTotal()}
-                                        sx={{ minWidth: '120px' }}
-                                        inputProps={{ style: { textAlign: 'right', fontWeight: 'bold' } }}
-                                    />
-                                </TableCell>
-                                <TableCell colSpan={2}></TableCell>
-                            </TableRow>
-                        </TableBody>
-                    </Table>
-                </TableContainer>
-            </Paper>
-            
-            {/* 操作按钮 */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '30px' }}>
-                <Button variant="outlined" onClick={() => navigate('/orders')}>
-                    Cancel
-                </Button>
-                <Button 
-                    variant="contained" 
-                    color="primary" 
-                    onClick={handleSubmit}
-                    disabled={loading}
+        <Container maxWidth={false} sx={{ height: 'calc(100vh - 64px)', p: 0, mt: '64px' }}>
+            <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                <Paper 
+                    elevation={0} 
+                    sx={{ 
+                        p: 3, 
+                        backgroundColor: 'primary.main',
+                        color: 'white',
+                        borderRadius: 0,
+                        position: 'relative',
+                        zIndex: 1
+                    }}
                 >
-                    {loading ? 'Submitting...' : 'Create Order'}
-                </Button>
-            </div>
+                    <Typography variant="h4" component="h1" gutterBottom>
+                        Create New Order
+                    </Typography>
+                    <Typography variant="subtitle1" sx={{ opacity: 0.8 }}>
+                        Create and manage orders for quotes and sales
+                    </Typography>
+                </Paper>
+
+                <Box sx={{ flex: 1, p: 3, backgroundColor: '#f5f5f5', overflowY: 'auto' }}>
+                    {/* 订单基本信息 */}
+                    <Paper sx={{ p: 3, mb: 3, borderRadius: 2 }}>
+                        <Typography variant="h6" gutterBottom>Order Information</Typography>
+                        <Grid container spacing={3}>
+                            <Grid item xs={12} md={6}>
+                                <FormControl fullWidth>
+                                    <InputLabel>Order Type *</InputLabel>
+                                    <Select
+                                        value={orderType}
+                                        onChange={(e) => setOrderType(e.target.value)}
+                                        label="Order Type *"
+                                    >
+                                        <MenuItem value="QUOTE">Quote</MenuItem>
+                                        <MenuItem value="SALES">Sales</MenuItem>
+                                    </Select>
+                                </FormControl>
+                            </Grid>
+                            <Grid item xs={12} md={6}>
+                                <FormControl fullWidth>
+                                    <InputLabel>Customer *</InputLabel>
+                                    <Select
+                                        value={customerId}
+                                        onChange={(e) => setCustomerId(e.target.value)}
+                                        label="Customer *"
+                                    >
+                                        {customers.map(customer => (
+                                            <MenuItem key={customer.id} value={customer.id}>
+                                                {customer.name}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                            </Grid>
+                            <Grid item xs={12}>
+                                <TextField
+                                    label="Remark"
+                                    multiline
+                                    rows={2}
+                                    fullWidth
+                                    value={remark}
+                                    onChange={(e) => setRemark(e.target.value)}
+                                />
+                            </Grid>
+                        </Grid>
+                    </Paper>
+            
+                    {/* 订单项目列表 */}
+                    <Paper sx={{ p: 3, mb: 3, borderRadius: 2 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                            <Typography variant="h6">Order Items</Typography>
+                            <Button 
+                                startIcon={<AddIcon />}
+                                onClick={handleAddItem}
+                                variant="outlined"
+                            >
+                                Add Item
+                            </Button>
+                        </div>
+                        
+                        <TableContainer>
+                            <Table>
+                                <TableHead>
+                                    <TableRow>
+                                        <TableCell width="15%">Material *</TableCell>
+                                        <TableCell width="15%">Specification *</TableCell>
+                                        <TableCell width="10%">Quantity *</TableCell>
+                                        <TableCell width="8%">Unit</TableCell>
+                                        <TableCell width="10%">Weight</TableCell>
+                                        <TableCell width="12%">Unit Price *</TableCell>
+                                        <TableCell width="12%">Subtotal</TableCell>
+                                        <TableCell width="12%">Remark</TableCell>
+                                        <TableCell width="6%">Action</TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {orderItems.map((item, index) => (
+                                        <TableRow key={index}>
+                                            <TableCell>
+                                                <FormControl fullWidth size="small">
+                                                    <Select
+                                                        value={item.material}
+                                                        onChange={(e) => handleItemChange(index, 'material', e.target.value)}
+                                                        displayEmpty
+                                                    >
+                                                        <MenuItem value="" disabled>Select Material</MenuItem>
+                                                        {getMaterialOptions().map(material => (
+                                                            <MenuItem key={material} value={material}>{material}</MenuItem>
+                                                        ))}
+                                                    </Select>
+                                                </FormControl>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Autocomplete
+                                                    disabled={!item.material}
+                                                    value={item.specification}
+                                                    onChange={(event, newValue) => handleItemChange(index, 'specification', newValue || '')}
+                                                    inputValue={item.searchSpec || ''}
+                                                    onInputChange={(event, newInputValue) => {
+                                                        const newItems = [...orderItems];
+                                                        newItems[index].searchSpec = newInputValue;
+                                                        setOrderItems(newItems);
+                                                    }}
+                                                    options={filterSpecifications(item.material, item.searchSpec || '')}
+                                                    freeSolo
+                                                    size="small"
+                                                    renderInput={(params) => (
+                                                        <TextField 
+                                                            {...params} 
+                                                            placeholder="Search specification" 
+                                                            variant="outlined"
+                                                            fullWidth
+                                                        />
+                                                    )}
+                                                    ListboxProps={{
+                                                        style: { maxHeight: '150px', overflow: 'auto' }
+                                                    }}
+                                                />
+                                            </TableCell>
+                                            <TableCell>
+                                                <TextField
+                                                    type="number"
+                                                    size="small"
+                                                    fullWidth
+                                                    value={item.quantity}
+                                                    onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
+                                                    inputProps={{ min: 0 }}
+                                                />
+                                            </TableCell>
+                                            <TableCell>
+                                                <FormControl fullWidth size="small">
+                                                    <Select
+                                                        value={item.unit}
+                                                        onChange={(e) => handleItemChange(index, 'unit', e.target.value)}
+                                                    >
+                                                        <MenuItem value="piece">Piece</MenuItem>
+                                                        <MenuItem value="kg">Kilogram</MenuItem>
+                                                        <MenuItem value="m">Meter</MenuItem>
+                                                    </Select>
+                                                </FormControl>
+                                            </TableCell>
+                                            <TableCell>
+                                                <TextField
+                                                    type="number"
+                                                    size="small"
+                                                    fullWidth
+                                                    value={item.weight}
+                                                    onChange={(e) => handleItemChange(index, 'weight', e.target.value)}
+                                                    inputProps={{ min: 0, step: 0.01 }}
+                                                />
+                                            </TableCell>
+                                            <TableCell>
+                                                <TextField
+                                                    type="number"
+                                                    size="small"
+                                                    fullWidth
+                                                    value={item.unit_price}
+                                                    onChange={(e) => handleItemChange(index, 'unit_price', e.target.value)}
+                                                    inputProps={{ min: 0, step: 0.01 }}
+                                                    sx={{ minWidth: '120px' }}
+                                                />
+                                            </TableCell>
+                                            <TableCell>
+                                                <TextField
+                                                    disabled
+                                                    size="small"
+                                                    fullWidth
+                                                    value={item.subtotal || ''}
+                                                    sx={{ minWidth: '120px' }}
+                                                />
+                                            </TableCell>
+                                            <TableCell>
+                                                <TextField
+                                                    size="small"
+                                                    fullWidth
+                                                    value={item.remark || ''}
+                                                    onChange={(e) => handleItemChange(index, 'remark', e.target.value)}
+                                                />
+                                            </TableCell>
+                                            <TableCell>
+                                                <IconButton 
+                                                    color="error" 
+                                                    onClick={() => handleDeleteItem(index)}
+                                                    disabled={orderItems.length <= 1}
+                                                >
+                                                    <DeleteIcon />
+                                                </IconButton>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                    <TableRow>
+                                        <TableCell colSpan={6} align="right">
+                                            <Typography variant="subtitle1"><strong>Total:</strong></Typography>
+                                        </TableCell>
+                                        <TableCell>
+                                            <TextField
+                                                disabled
+                                                size="small"
+                                                fullWidth
+                                                value={calculateTotal()}
+                                                sx={{ minWidth: '120px' }}
+                                                inputProps={{ style: { textAlign: 'right', fontWeight: 'bold' } }}
+                                            />
+                                        </TableCell>
+                                        <TableCell colSpan={2}></TableCell>
+                                    </TableRow>
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    </Paper>
+            
+                    {/* 操作按钮 */}
+                    <Paper sx={{ p: 3, borderRadius: 2 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Button variant="outlined" onClick={() => navigate('/orders')}>
+                                Cancel
+                            </Button>
+                            <Button 
+                                variant="contained" 
+                                color="primary" 
+                                onClick={handleSubmit}
+                                disabled={loading}
+                            >
+                                {loading ? 'Submitting...' : 'Create Order'}
+                            </Button>
+                        </Box>
+                    </Paper>
+                </Box>
+            </Box>
             
             {/* 确认对话框 */}
             <Dialog

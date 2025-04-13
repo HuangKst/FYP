@@ -60,6 +60,16 @@ export const updateInventoryItem = async (id, quantity, density) => {
   }
 };
 
+// 删除库存项
+export const deleteInventoryItem = async (id) => {
+  try {
+    const response = await instance.delete(`/inventory/${id}`);
+    return response.data;
+  } catch (error) {
+    return handleError(error, 'Failed to delete inventory item')
+  }
+};
+
 // 导入库存数据的功能（使用 exceljs 解析 Excel 文件并上传 JSON 数据）
 export const importInventoryFromExcel = async (file) => {
   try {

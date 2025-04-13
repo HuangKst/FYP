@@ -176,8 +176,8 @@ const EmployeePage = () => {
   // If no permission, show access denied message
   if (!hasPermission) {
     return (
-      <Container>
-        <Box sx={{ mt: 4, textAlign: 'center' }}>
+      <Container maxWidth={false} sx={{ height: 'calc(100vh - 64px)', p: 0, mt: '64px' }}>
+        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
           <Typography variant="h5" color="error">
             Access Denied
           </Typography>
@@ -190,16 +190,17 @@ const EmployeePage = () => {
   }
 
   return (
-    <Container maxWidth="lg">
-      <Box sx={{ mt: 4, mb: 4 }}>
+    <Container maxWidth={false} sx={{ height: 'calc(100vh - 64px)', p: 0, mt: '64px' }}>
+      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
         <Paper 
           elevation={0} 
           sx={{ 
             p: 3, 
-            mb: 3, 
             backgroundColor: 'primary.main',
             color: 'white',
-            borderRadius: 2
+            borderRadius: 0,
+            position: 'relative',
+            zIndex: 1
           }}
         >
           <Typography variant="h4" component="h1" gutterBottom>
@@ -210,317 +211,352 @@ const EmployeePage = () => {
           </Typography>
         </Paper>
 
-        <Paper sx={{ mb: 3, borderRadius: 2 }}>
-          <Tabs 
-            value={tabValue} 
-            onChange={handleTabChange} 
-            sx={{ 
-              borderBottom: 1, 
-              borderColor: 'divider',
-              px: 2
-            }}
-          >
-            <Tab 
-              label="Employee List" 
+        <Box sx={{ flex: 1, p: 3, backgroundColor: '#f5f5f5', overflowY: 'auto' }}>
+          <Paper sx={{ height: '100%', borderRadius: 2 }}>
+            <Tabs 
+              value={tabValue} 
+              onChange={handleTabChange} 
               sx={{ 
-                fontWeight: 'medium',
-                fontSize: '1rem',
-                textTransform: 'none'
+                borderBottom: 1, 
+                borderColor: 'divider',
+                px: 2
               }}
-            />
-            <Tab 
-              label="Pending Approvals" 
-              sx={{ 
-                fontWeight: 'medium',
-                fontSize: '1rem',
-                textTransform: 'none'
-              }}
-            />
-          </Tabs>
+            >
+              <Tab 
+                label="Employee List" 
+                sx={{ 
+                  fontWeight: 'medium',
+                  fontSize: '1rem',
+                  textTransform: 'none'
+                }}
+              />
+              <Tab 
+                label="Pending Approvals" 
+                sx={{ 
+                  fontWeight: 'medium',
+                  fontSize: '1rem',
+                  textTransform: 'none'
+                }}
+              />
+            </Tabs>
 
-          <Box sx={{ p: 3 }}>
-            {/* Employee List */}
-            {tabValue === 0 && (
-              <Box>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={() => setOpenDialog(true)}
-                  startIcon={<PersonAddIcon />}
-                  sx={{ 
-                    mb: 3,
-                    boxShadow: 2,
-                    textTransform: 'none',
-                    borderRadius: 2
-                  }}
-                >
-                  Add Employee
-                </Button>
+            <Box sx={{ p: 3 }}>
+              {/* Employee List */}
+              {tabValue === 0 && (
+                <Box>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={() => setOpenDialog(true)}
+                    startIcon={<PersonAddIcon />}
+                    sx={{ 
+                      mb: 3,
+                      boxShadow: 2,
+                      textTransform: 'none',
+                      borderRadius: 2
+                    }}
+                  >
+                    Add Employee
+                  </Button>
 
-                <List sx={{ bgcolor: 'background.paper' }}>
-                  {employees.map((employee) => (
-                    <React.Fragment key={employee.id}>
-                      <ListItem
-                        onClick={() => navigate(`/employee/${employee.id}`)}
-                        sx={{
-                          cursor: 'pointer',
-                          '&:hover': {
-                            bgcolor: 'action.hover',
-                            transform: 'translateX(6px)',
-                            transition: 'all 0.2s'
-                          },
-                          borderRadius: 2,
-                          mb: 1,
-                          p: 2
-                        }}
-                        secondaryAction={
-                          <IconButton
-                            edge="end"
-                            aria-label="delete"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteEmployee(employee.id);
-                            }}
-                            sx={{
-                              '&:hover': {
-                                color: 'error.main',
-                              }
+                  <List sx={{ 
+                    bgcolor: 'background.paper',
+                    maxHeight: 'calc(100vh - 300px)',
+                    overflowY: 'auto',
+                    '&::-webkit-scrollbar': {
+                      width: '8px',
+                    },
+                    '&::-webkit-scrollbar-track': {
+                      background: '#f1f1f1',
+                    },
+                    '&::-webkit-scrollbar-thumb': {
+                      background: '#888',
+                      borderRadius: '4px',
+                    },
+                    '&::-webkit-scrollbar-thumb:hover': {
+                      background: '#555',
+                    }
+                  }}>
+                    {employees.map((employee) => (
+                      <React.Fragment key={employee.id}>
+                        <ListItem
+                          onClick={() => navigate(`/employee/${employee.id}`)}
+                          sx={{
+                            cursor: 'pointer',
+                            '&:hover': {
+                              bgcolor: 'action.hover',
+                              transform: 'translateX(6px)',
+                              transition: 'all 0.2s'
+                            },
+                            borderRadius: 2,
+                            mb: 1,
+                            p: 2
+                          }}
+                          secondaryAction={
+                            <IconButton
+                              edge="end"
+                              aria-label="delete"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteEmployee(employee.id);
+                              }}
+                              sx={{
+                                '&:hover': {
+                                  color: 'error.main',
+                                }
+                              }}
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          }
+                        >
+                          <Avatar 
+                            sx={{ 
+                              mr: 2, 
+                              bgcolor: getRandomColor(employee.name),
+                              width: 40,
+                              height: 40
                             }}
                           >
-                            <DeleteIcon />
-                          </IconButton>
-                        }
-                      >
-                        <Avatar 
-                          sx={{ 
-                            mr: 2, 
-                            bgcolor: getRandomColor(employee.name),
-                            width: 40,
-                            height: 40
-                          }}
-                        >
-                          {getInitials(employee.name)}
-                        </Avatar>
-                        <ListItemText
-                          primary={
-                            <Typography variant="subtitle1" sx={{ fontWeight: 'medium' }}>
-                              {employee.name}
-                            </Typography>
-                          }
-                          secondary={
-                            <Box sx={{ mt: 0.5 }}>
-                              <Typography 
-                                variant="body2" 
-                                color="text.secondary"
-                                component="span"
-                                sx={{ mr: 2 }}
-                              >
-                                {employee.position || 'Position not set'}
+                            {getInitials(employee.name)}
+                          </Avatar>
+                          <ListItemText
+                            primary={
+                              <Typography variant="subtitle1" sx={{ fontWeight: 'medium' }}>
+                                {employee.name}
                               </Typography>
-                              <Typography 
-                                variant="body2" 
-                                color="text.secondary"
-                                component="span"
-                                sx={{ mr: 2 }}
-                              >
-                                {employee.department || 'Department not set'}
-                              </Typography>
-                              <Typography 
-                                variant="body2" 
-                                color="text.secondary"
-                                component="span"
-                              >
-                                Join Date: {employee.join_date ? new Date(employee.join_date).toLocaleDateString() : 'Not set'}
-                              </Typography>
-                            </Box>
-                          }
-                        />
-                      </ListItem>
-                      <Divider component="li" sx={{ opacity: 0.5 }} />
-                    </React.Fragment>
-                  ))}
-                </List>
-              </Box>
-            )}
+                            }
+                            secondary={
+                              <Box sx={{ mt: 0.5 }}>
+                                <Typography 
+                                  variant="body2" 
+                                  color="text.secondary"
+                                  component="span"
+                                  sx={{ mr: 2 }}
+                                >
+                                  {employee.position || 'Position not set'}
+                                </Typography>
+                                <Typography 
+                                  variant="body2" 
+                                  color="text.secondary"
+                                  component="span"
+                                  sx={{ mr: 2 }}
+                                >
+                                  {employee.department || 'Department not set'}
+                                </Typography>
+                                <Typography 
+                                  variant="body2" 
+                                  color="text.secondary"
+                                  component="span"
+                                >
+                                  Join Date: {employee.join_date ? new Date(employee.join_date).toLocaleDateString() : 'Not set'}
+                                </Typography>
+                              </Box>
+                            }
+                          />
+                        </ListItem>
+                        <Divider component="li" sx={{ opacity: 0.5 }} />
+                      </React.Fragment>
+                    ))}
+                  </List>
+                </Box>
+              )}
 
-            {/* Pending Approvals */}
-            {tabValue === 1 && (
-              <List>
-                {pendingUsers.map((user) => (
-                  <Paper
-                    key={user.id}
-                    sx={{ 
-                      mb: 2, 
-                      p: 2,
-                      borderRadius: 2,
-                      '&:hover': {
-                        boxShadow: 2,
-                        transform: 'translateY(-2px)',
-                        transition: 'all 0.2s'
-                      }
-                    }}
-                  >
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <Avatar 
-                          sx={{ 
-                            mr: 2, 
-                            bgcolor: getRandomColor(user.username),
-                            width: 40,
-                            height: 40
-                          }}
-                        >
-                          {getInitials(user.username)}
-                        </Avatar>
+              {/* Pending Approvals */}
+              {tabValue === 1 && (
+                <List sx={{ 
+                  maxHeight: 'calc(100vh - 300px)',
+                  overflowY: 'auto',
+                  '&::-webkit-scrollbar': {
+                    width: '8px',
+                  },
+                  '&::-webkit-scrollbar-track': {
+                    background: '#f1f1f1',
+                  },
+                  '&::-webkit-scrollbar-thumb': {
+                    background: '#888',
+                    borderRadius: '4px',
+                  },
+                  '&::-webkit-scrollbar-thumb:hover': {
+                    background: '#555',
+                  }
+                }}>
+                  {pendingUsers.map((user) => (
+                    <Paper
+                      key={user.id}
+                      sx={{ 
+                        mb: 2, 
+                        p: 2,
+                        borderRadius: 2,
+                        '&:hover': {
+                          boxShadow: 2,
+                          transform: 'translateY(-2px)',
+                          transition: 'all 0.2s'
+                        }
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <Avatar 
+                            sx={{ 
+                              mr: 2, 
+                              bgcolor: getRandomColor(user.username),
+                              width: 40,
+                              height: 40
+                            }}
+                          >
+                            {getInitials(user.username)}
+                          </Avatar>
+                          <Box>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 'medium' }}>
+                              {user.username}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              {user.email}
+                            </Typography>
+                          </Box>
+                        </Box>
                         <Box>
-                          <Typography variant="subtitle1" sx={{ fontWeight: 'medium' }}>
-                            {user.username}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {user.email}
-                          </Typography>
+                          <Button
+                            variant="contained"
+                            color="primary"
+                            onClick={() => handleApproveUser(user.id, true)}
+                            sx={{ 
+                              mr: 1,
+                              textTransform: 'none',
+                              borderRadius: 2
+                            }}
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            color="error"
+                            onClick={() => handleApproveUser(user.id, false)}
+                            sx={{ 
+                              textTransform: 'none',
+                              borderRadius: 2
+                            }}
+                          >
+                            Reject
+                          </Button>
                         </Box>
                       </Box>
-                      <Box>
-                        <Button
-                          variant="contained"
-                          color="primary"
-                          onClick={() => handleApproveUser(user.id, true)}
-                          sx={{ 
-                            mr: 1,
-                            textTransform: 'none',
-                            borderRadius: 2
-                          }}
-                        >
-                          Approve
-                        </Button>
-                        <Button
-                          variant="outlined"
-                          color="error"
-                          onClick={() => handleApproveUser(user.id, false)}
-                          sx={{ 
-                            textTransform: 'none',
-                            borderRadius: 2
-                          }}
-                        >
-                          Reject
-                        </Button>
-                      </Box>
+                    </Paper>
+                  ))}
+                  {pendingUsers.length === 0 && (
+                    <Box 
+                      sx={{ 
+                        textAlign: 'center', 
+                        py: 4,
+                        color: 'text.secondary'
+                      }}
+                    >
+                      <Typography variant="body1">
+                        No pending approvals
+                      </Typography>
                     </Box>
-                  </Paper>
-                ))}
-                {pendingUsers.length === 0 && (
-                  <Box 
-                    sx={{ 
-                      textAlign: 'center', 
-                      py: 4,
-                      color: 'text.secondary'
-                    }}
-                  >
-                    <Typography variant="body1">
-                      No pending approvals
-                    </Typography>
-                  </Box>
-                )}
-              </List>
-            )}
-          </Box>
-        </Paper>
-
-        {/* Add Employee Dialog */}
-        <Dialog 
-          open={openDialog} 
-          onClose={() => setOpenDialog(false)}
-          PaperProps={{
-            sx: { borderRadius: 2 }
-          }}
-        >
-          <DialogTitle sx={{ pb: 1 }}>Add New Employee</DialogTitle>
-          <DialogContent sx={{ pb: 2 }}>
-            <TextField
-              autoFocus
-              margin="dense"
-              label="Name"
-              fullWidth
-              value={newEmployee.name}
-              onChange={(e) => setNewEmployee({ ...newEmployee, name: e.target.value })}
-              sx={{ mb: 2 }}
-            />
-            <TextField
-              margin="dense"
-              label="Email"
-              type="email"
-              fullWidth
-              value={newEmployee.email}
-              onChange={(e) => setNewEmployee({ ...newEmployee, email: e.target.value })}
-              sx={{ mb: 2 }}
-            />
-            <TextField
-              margin="dense"
-              label="Position"
-              fullWidth
-              value={newEmployee.position}
-              onChange={(e) => setNewEmployee({ ...newEmployee, position: e.target.value })}
-              sx={{ mb: 2 }}
-            />
-            <TextField
-              margin="dense"
-              label="Department"
-              fullWidth
-              value={newEmployee.department}
-              onChange={(e) => setNewEmployee({ ...newEmployee, department: e.target.value })}
-              sx={{ mb: 2 }}
-            />
-            <TextField
-              margin="dense"
-              label="Join Date"
-              type="date"
-              fullWidth
-              InputLabelProps={{ shrink: true }}
-              value={newEmployee.join_date}
-              onChange={(e) => setNewEmployee({ ...newEmployee, join_date: e.target.value })}
-            />
-          </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button 
-              onClick={() => setOpenDialog(false)}
-              sx={{ 
-                textTransform: 'none',
-                borderRadius: 2
-              }}
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleAddEmployee}
-              variant="contained"
-              sx={{ 
-                textTransform: 'none',
-                borderRadius: 2
-              }}
-            >
-              Add
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Snackbar */}
-        <Snackbar
-          open={snackbar.open}
-          autoHideDuration={6000}
-          onClose={handleCloseSnackbar}
-          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        >
-          <Alert
-            onClose={handleCloseSnackbar}
-            severity={snackbar.severity}
-            sx={{ width: '100%' }}
-            elevation={6}
-          >
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
+                  )}
+                </List>
+              )}
+            </Box>
+          </Paper>
+        </Box>
       </Box>
+
+      {/* Add Employee Dialog */}
+      <Dialog 
+        open={openDialog} 
+        onClose={() => setOpenDialog(false)}
+        PaperProps={{
+          sx: { borderRadius: 2 }
+        }}
+      >
+        <DialogTitle sx={{ pb: 1 }}>Add New Employee</DialogTitle>
+        <DialogContent sx={{ pb: 2 }}>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Name"
+            fullWidth
+            value={newEmployee.name}
+            onChange={(e) => setNewEmployee({ ...newEmployee, name: e.target.value })}
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            margin="dense"
+            label="Email"
+            type="email"
+            fullWidth
+            value={newEmployee.email}
+            onChange={(e) => setNewEmployee({ ...newEmployee, email: e.target.value })}
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            margin="dense"
+            label="Position"
+            fullWidth
+            value={newEmployee.position}
+            onChange={(e) => setNewEmployee({ ...newEmployee, position: e.target.value })}
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            margin="dense"
+            label="Department"
+            fullWidth
+            value={newEmployee.department}
+            onChange={(e) => setNewEmployee({ ...newEmployee, department: e.target.value })}
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            margin="dense"
+            label="Join Date"
+            type="date"
+            fullWidth
+            InputLabelProps={{ shrink: true }}
+            value={newEmployee.join_date}
+            onChange={(e) => setNewEmployee({ ...newEmployee, join_date: e.target.value })}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button 
+            onClick={() => setOpenDialog(false)}
+            sx={{ 
+              textTransform: 'none',
+              borderRadius: 2
+            }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleAddEmployee}
+            variant="contained"
+            sx={{ 
+              textTransform: 'none',
+              borderRadius: 2
+            }}
+          >
+            Add
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={handleCloseSnackbar}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+          elevation={6}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };
