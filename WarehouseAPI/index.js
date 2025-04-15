@@ -25,6 +25,11 @@ app.use(express.json());
 
 // 路由
 app.use('/api/users', usersRouter); // 如果部分路由不需要认证，可直接使用
+
+// 添加PDF下载路由特例 - 不需要认证
+app.get('/api/orders/:id/pdf', orderRoutes);
+
+// 其他routes需要认证
 app.use('/api/admin', authenticate, adminAuth, logger, adminRouter);
 app.use('/api/customers', authenticate, logger, customerRoutes);
 app.use('/api/orders', authenticate, logger, orderRoutes);
