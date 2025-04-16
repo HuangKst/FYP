@@ -29,6 +29,14 @@ const Pagination = ({
   showTotal = true,
   totalLabel = "Total: {total} items"
 }) => {
+  // 确保pagination对象是完整的
+  const safetyPagination = {
+    total: pagination?.total || 0,
+    page: pagination?.page || 1,
+    pageSize: pagination?.pageSize || 10,
+    totalPages: pagination?.totalPages || 0
+  };
+  
   // Handle page change
   const handlePageChange = (event, newPage) => {
     if (onPageChange) {
@@ -39,12 +47,12 @@ const Pagination = ({
   // Handle page size change
   const handlePageSizeChange = (event) => {
     if (onPageSizeChange) {
-      onPageSizeChange(parseInt(event.target.value));
+      onPageSizeChange(parseInt(event.target.value || 10));
     }
   };
 
   // Format total label
-  const formattedTotalLabel = totalLabel.replace('{total}', pagination.total);
+  const formattedTotalLabel = totalLabel.replace('{total}', safetyPagination.total);
 
   return (
     <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: 2, mb: 2 }}>
@@ -53,12 +61,12 @@ const Pagination = ({
         <Select
           labelId="page-size-select-label"
           id="page-size-select"
-          value={pagination.pageSize.toString()}
+          value={safetyPagination.pageSize.toString()}
           label="Items per page"
           onChange={handlePageSizeChange}
         >
           {pageSizeOptions.map(size => (
-            <MenuItem key={size} value={size}>
+            <MenuItem key={size} value={size.toString()}>
               {size} items
             </MenuItem>
           ))}
@@ -66,8 +74,8 @@ const Pagination = ({
       </FormControl>
       
       <MuiPagination 
-        count={pagination.totalPages} 
-        page={pagination.page} 
+        count={safetyPagination.totalPages} 
+        page={safetyPagination.page} 
         onChange={handlePageChange}
         color="primary"
         showFirstButton

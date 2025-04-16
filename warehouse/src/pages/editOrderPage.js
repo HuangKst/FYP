@@ -26,7 +26,7 @@ import AddIcon from '@mui/icons-material/Add';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fetchInventory } from '../api/inventoryApi';
 import { getCustomers } from '../api/customerApi';
-import { fetchOrderById, updateOrder } from '../api/orderApi';
+import { fetchOrderDetail, createOrder, updateOrderStatus, updateOrder } from '../api/orderApi';
 
 // 从localStorage获取当前用户信息
 const getCurrentUser = () => {
@@ -85,7 +85,7 @@ const EditOrderPage = () => {
             setLoading(true);
             try {
                 // 加载订单数据
-                const orderResponse = await fetchOrderById(orderId);
+                const orderResponse = await fetchOrderDetail(orderId);
                 if (orderResponse.success && orderResponse.order) {
                     const orderData = orderResponse.order;
                     setOriginalOrder(orderData);

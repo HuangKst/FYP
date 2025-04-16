@@ -21,7 +21,7 @@ import {
     Container
 } from '@mui/material';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { fetchOrderById, updateOrderStatus, deleteOrder } from '../../api/orderApi';
+import { fetchOrderDetail, updateOrderStatus, deleteOrder } from '../../api/orderApi';
 import PrintIcon from '@mui/icons-material/Print';
 import OrderPrintPreview from '../OrderPrintPreview';
 
@@ -104,7 +104,7 @@ const OrderDetail = () => {
             
             setLoading(true);
             try {
-                const response = await fetchOrderById(orderId);
+                const response = await fetchOrderDetail(orderId);
                 console.log('完整的订单详情数据:', response);
                 console.log('用户信息:', response.order?.user);
                 console.log('客户信息:', response.order?.customer);
@@ -157,7 +157,7 @@ const OrderDetail = () => {
             
             if (response.success) {
                 // 刷新订单数据
-                const updatedResponse = await fetchOrderById(orderId);
+                const updatedResponse = await fetchOrderDetail(orderId);
                 if (updatedResponse.success) {
                     setOrder(updatedResponse.order);
                 }

@@ -103,7 +103,7 @@ router.post('/', async (req, res) => {
  */
 router.get('/', async (req, res) => {
   try {
-    const { type, paid, completed, customerName } = req.query;
+    const { type, paid, completed, customerName, page = 1, pageSize = 10 } = req.query;
     const where = {};
     if (type) where.order_type = type;
     if (paid !== undefined) where.is_paid = (paid === 'true');
@@ -122,12 +122,35 @@ router.get('/', async (req, res) => {
       };
     }
 
+    // 计算偏移量
+    const offset = (parseInt(page) - 1) * parseInt(pageSize);
+    const limit = parseInt(pageSize);
+
+    // 获取总记录数
+    const count = await Order.count({
+      where,
+      include: customerName ? [{ model: Customer, where: { name: { [Op.like]: `%${customerName}%` } } }] : []
+    });
+
+    // 获取分页数据
     const orders = await Order.findAll({
       where,
       order: [['created_at','DESC']],
-      include
+      include,
+      offset,
+      limit
     });
-    res.json({ success: true, orders });
+
+    res.json({ 
+      success: true, 
+      orders,
+      pagination: {
+        total: count,
+        page: parseInt(page),
+        pageSize: parseInt(pageSize),
+        totalPages: Math.ceil(count / pageSize)
+      }
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, msg: 'Failed to fetch orders' });

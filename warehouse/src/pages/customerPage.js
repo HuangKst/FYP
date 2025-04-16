@@ -10,7 +10,6 @@ import {
   TableHead, 
   TableRow, 
   Paper, 
-  Pagination, 
   Typography, 
   Box, 
   Button, 
@@ -23,31 +22,58 @@ import {
   IconButton
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
+import Pagination from '../component/Pagination';
 
 const CustomerPage = () => {
   const [customers, setCustomers] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
   const [searchInput, setSearchInput] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [filteredCustomers, setFilteredCustomers] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', address: '', remark: '' });
   const [openDialog, setOpenDialog] = useState(false);
-  const customersPerPage = 20;
   const navigate = useNavigate();
+  
+  // 分页状态
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [pagination, setPagination] = useState({
+    total: 0,
+    page: 1,
+    pageSize: 20,
+    totalPages: 1
+  });
 
   useEffect(() => {
     fetchCustomers();
-  }, []);
+  }, [page, pageSize]); // 页码或每页数量变化时重新加载
+
+  // 确保分页数据完整性
+  const ensurePaginationData = (paginationData) => {
+    return {
+      total: paginationData?.total || 0,
+      page: paginationData?.page || page,
+      pageSize: paginationData?.pageSize || pageSize,
+      totalPages: paginationData?.totalPages || 1
+    };
+  };
 
   const fetchCustomers = async () => {
-    const response = await getCustomers();
-    if (response.success) {
-      setCustomers(response.customers);
+    setLoading(true);
+    try {
+      const response = await getCustomers(searchInput, page, pageSize);
+      if (response.success) {
+        setCustomers(response.customers || []);
+        setPagination(ensurePaginationData(response.pagination));
+      }
+    } catch (error) {
+      console.error('Error fetching customers:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleSearch = () => {
-    setSearchTerm(searchInput);
+    setPage(1); // 重置到第一页
+    fetchCustomers();
   };
 
   const handleKeyPress = (e) => {
@@ -56,19 +82,15 @@ const CustomerPage = () => {
     }
   };
 
-  useEffect(() => {
-    const filtered = customers.filter(customer =>
-      customer.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    setFilteredCustomers(filtered);
-  }, [searchTerm, customers]);
+  // 处理页码变化
+  const handlePageChange = (newPage) => {
+    setPage(newPage);
+  };
 
-  const indexOfLastCustomer = currentPage * customersPerPage;
-  const indexOfFirstCustomer = indexOfLastCustomer - customersPerPage;
-  const currentCustomers = filteredCustomers.slice(indexOfFirstCustomer, indexOfLastCustomer);
-
-  const handlePageChange = (event, value) => {
-    setCurrentPage(value);
+  // 处理每页数量变化
+  const handlePageSizeChange = (newPageSize) => {
+    setPageSize(newPageSize);
+    setPage(1); // 重置到第一页
   };
 
   const handleAddCustomer = async () => {
@@ -88,7 +110,13 @@ const CustomerPage = () => {
   const handleDeleteCustomer = async (customerId) => {
     const response = await deleteCustomer(customerId);
     if (response.success) {
-      fetchCustomers();
+      // 如果当前页只有一条数据且不是第一页，则返回上一页
+      if (customers.length === 1 && page > 1) {
+        setPage(page - 1);
+      } else {
+        // 否则重新加载当前页
+        fetchCustomers();
+      }
     }
   };
 
@@ -159,45 +187,57 @@ const CustomerPage = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {currentCustomers.map(customer => (
-                      <TableRow key={customer.id}>
-                        <TableCell>{customer.name}</TableCell>
-                        <TableCell>{customer.phone}</TableCell>
-                        <TableCell>{customer.address}</TableCell>
-                        <TableCell>
-                          <Box sx={{ display: 'flex', gap: 1 }}>
-                            <Button
-                              color="primary"
-                              variant="outlined"
-                              size="small"
-                              onClick={() => handleViewCustomerDetail(customer.id)}
-                            >
-                              Details
-                            </Button>
-                            <Button 
-                              color="error" 
-                              variant="outlined"
-                              size="small"
-                              onClick={() => handleDeleteCustomer(customer.id)}
-                            >
-                              Delete
-                            </Button>
-                          </Box>
+                    {loading ? (
+                      <TableRow>
+                        <TableCell colSpan={4} align="center">
+                          Loading...
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ) : customers.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} align="center">
+                          No customers found
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      customers.map(customer => (
+                        <TableRow key={customer.id}>
+                          <TableCell>{customer.name}</TableCell>
+                          <TableCell>{customer.phone}</TableCell>
+                          <TableCell>{customer.address}</TableCell>
+                          <TableCell>
+                            <Box sx={{ display: 'flex', gap: 1 }}>
+                              <Button
+                                color="primary"
+                                variant="outlined"
+                                size="small"
+                                onClick={() => handleViewCustomerDetail(customer.id)}
+                              >
+                                Details
+                              </Button>
+                              <Button 
+                                color="error" 
+                                variant="outlined"
+                                size="small"
+                                onClick={() => handleDeleteCustomer(customer.id)}
+                              >
+                                Delete
+                              </Button>
+                            </Box>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </TableContainer>
 
-              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
-                <Pagination
-                  count={Math.ceil(filteredCustomers.length / customersPerPage)}
-                  page={currentPage}
-                  onChange={handlePageChange}
-                  color="primary"
-                />
-              </Box>
+              {/* 使用通用分页组件 */}
+              <Pagination 
+                pagination={pagination}
+                onPageChange={handlePageChange}
+                onPageSizeChange={handlePageSizeChange}
+              />
             </Box>
           </Paper>
         </Box>

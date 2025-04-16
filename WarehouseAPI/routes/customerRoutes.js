@@ -1,5 +1,6 @@
 import express from 'express';
 import Customer from '../Models/customerModel.js';
+import { Op } from 'sequelize';
 // import { authRequired } from '../middlewares/authRequired.js';
 
 const router = express.Router();
@@ -10,8 +11,39 @@ const router = express.Router();
  */
 router.get('/', async (req, res) => {
   try {
-    const customers = await Customer.findAll({ order: [['name','ASC']] });
-    res.json({ success: true, customers });
+    const { name, page = 1, pageSize = 20 } = req.query;
+    const where = {};
+    
+    // 添加名称搜索条件
+    if (name) {
+      where.name = { [Op.like]: `%${name}%` };
+    }
+    
+    // 计算偏移量
+    const offset = (parseInt(page) - 1) * parseInt(pageSize);
+    const limit = parseInt(pageSize);
+    
+    // 获取总记录数
+    const count = await Customer.count({ where });
+    
+    // 获取分页数据
+    const customers = await Customer.findAll({ 
+      where,
+      order: [['name','ASC']],
+      offset,
+      limit
+    });
+    
+    res.json({ 
+      success: true, 
+      customers,
+      pagination: {
+        total: count,
+        page: parseInt(page),
+        pageSize: parseInt(pageSize),
+        totalPages: Math.ceil(count / pageSize)
+      }
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, msg: 'Server error' });

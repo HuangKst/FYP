@@ -28,6 +28,7 @@ import OrderNumberSearch from '../component/button/searchButtonByOrderID';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import AddIcon from '@mui/icons-material/Add';
+import Pagination from '../component/Pagination';
 
 const OrderPage = () => {
     const navigate = useNavigate();
@@ -41,10 +42,30 @@ const OrderPage = () => {
     const [customerName, setCustomerName] = useState('');
     // 订单号搜索引用
     const orderNumberSearchRef = useRef(null);
+    
+    // 分页状态
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
+    const [pagination, setPagination] = useState({
+        total: 0,
+        page: 1,
+        pageSize: 10,
+        totalPages: 1
+    });
 
     // 导航到订单详情页面
     const handleOpenDetail = (orderId) => {
         navigate(`/order/${orderId}`);
+    };
+
+    // 确保分页数据完整性
+    const ensurePaginationData = (paginationData) => {
+        return {
+            total: paginationData?.total || 0,
+            page: paginationData?.page || page,
+            pageSize: paginationData?.pageSize || pageSize,
+            totalPages: paginationData?.totalPages || 1
+        };
     };
 
     // 执行搜索，整合所有搜索条件
@@ -58,7 +79,9 @@ const OrderPage = () => {
                 isPaid,
                 isCompleted,
                 customerName,
-                orderNumber
+                orderNumber,
+                page,
+                pageSize
             });
             
             // 调用API搜索订单
@@ -68,78 +91,37 @@ const OrderPage = () => {
                 isCompleted !== null ? isCompleted : undefined,
                 customerName,
                 null,  // customerId
-                orderNumber
+                orderNumber,
+                page,
+                pageSize
             );
             
-            console.log("API返回原始数据:", response);
-            
             if (response.success) {
-                let results = response.orders || [];
-                console.log("API返回订单数据:", results);
-                
-                // 如果搜索了订单号，需要在前端进行额外过滤以确保准确性
-                if (orderNumber && orderNumber.trim() !== '') {
-                    results = results.filter(order => 
-                        order.order_number && order.order_number.toLowerCase().includes(orderNumber.toLowerCase().trim())
-                    );
-                    console.log("订单号过滤后:", results);
-                }
-                
-                // 如果搜索了客户名，也需要确保过滤正确
-                if (customerName && customerName.trim() !== '') {
-                    results = results.filter(order => {
-                        const customerNameFromOrder = order.Customer && typeof order.Customer === 'object' 
-                            ? order.Customer.name 
-                            : (typeof order.Customer === 'string' ? order.Customer : '');
-                        return customerNameFromOrder && customerNameFromOrder.toLowerCase().includes(customerName.toLowerCase().trim());
-                    });
-                    console.log("客户名过滤后:", results);
-                }
-                
-                // 确保按类型筛选正确 - 增加日志调试
-                if (orderType && orderType.trim() !== '') {
-                    console.log("准备按类型过滤，当前类型:", orderType);
-                    console.log("过滤前订单类型:", results.map(order => order.order_type));
-                    
-                    results = results.filter(order => {
-                        const match = order.order_type === orderType.toUpperCase();
-                        console.log(`订单 ${order.order_number} 类型:${order.order_type}, 是否匹配:${match}`);
-                        return match;
-                    });
-                    
-                    console.log("类型过滤后:", results);
-                }
-                
-                setOrders(results);
-                
-                // 移除搜索结果数量的提示信息
+                setOrders(response.orders || []);
+                setPagination(ensurePaginationData(response.pagination));
             }
         } catch (error) {
             console.error('Error searching orders:', error);
-            // 不再显示错误提示对话框，而是在控制台记录错误
         } finally {
             setLoading(false);
         }
     };
 
-    // 初始加载时获取所有订单
+    // 初始加载时获取订单
     useEffect(() => {
-        const loadInitialOrders = async () => {
-            setLoading(true);
-            try {
-                const data = await fetchOrders();
-                if (data.success) {
-                    setOrders(data.orders || []);
-                }
-            } catch (error) {
-                console.error('Error loading orders:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-        
-        loadInitialOrders();
-    }, []);
+        handleSearch();
+    }, [page, pageSize]); // 页码或每页数量变化时重新加载
+
+    // 处理页码变化
+    const handlePageChange = (newPage) => {
+        setPage(newPage);
+    };
+
+    // 处理每页数量变化
+    const handlePageSizeChange = (newPageSize) => {
+        setPageSize(newPageSize);
+        setPage(1); // 重置到第一页
+    };
 
     // 重置筛选条件
     const handleReset = () => {
@@ -147,6 +129,7 @@ const OrderPage = () => {
         setIsPaid(null);
         setIsCompleted(null);
         setCustomerName('');
+        setPage(1);
         // 重置订单号搜索框
         window.orderNumberSearchComponent?.resetOrderNumber();
         // 重新加载所有订单
@@ -419,6 +402,13 @@ const OrderPage = () => {
                                 </TableBody>
                             </Table>
                         </TableContainer>
+                        
+                        {/* 分页组件 */}
+                        <Pagination 
+                            pagination={pagination}
+                            onPageChange={handlePageChange}
+                            onPageSizeChange={handlePageSizeChange}
+                        />
                     </Paper>
                 </Box>
             </Box>

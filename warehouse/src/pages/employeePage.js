@@ -20,18 +20,20 @@ import {
   Paper,
   Divider,
   Avatar,
+  InputAdornment
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import DeleteIcon from '@mui/icons-material/Delete';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import SearchIcon from '@mui/icons-material/Search';
 import { AuthContext } from '../contexts/authContext';
 import { 
   getAllEmployees, 
   addEmployee, 
-  deleteEmployee,
-  fetchPendingUsers,
-  approveUser
+  deleteEmployee
 } from '../api/employeeApi';
+import { fetchPendingUsers, approveUser } from '../api/pendingUserApi';
+import Pagination from '../component/Pagination';
 
 const EmployeePage = () => {
   const navigate = useNavigate();
@@ -41,6 +43,8 @@ const EmployeePage = () => {
   const [tabValue, setTabValue] = useState(0);
   const [openDialog, setOpenDialog] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [searchName, setSearchName] = useState('');
+  const [loading, setLoading] = useState(false);
   const [newEmployee, setNewEmployee] = useState({
     name: '',
     email: '',
@@ -48,51 +52,81 @@ const EmployeePage = () => {
     department: '',
     join_date: '',
   });
+  
+  // 分页状态
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [pagination, setPagination] = useState({
+    total: 0,
+    page: 1,
+    pageSize: 10,
+    totalPages: 1
+  });
 
   // Check permission
   const hasPermission = role === 'admin' || role === 'boss';
   
   // Data fetching functions
   const fetchEmployees = useCallback(async () => {
+    if (!hasPermission) return;
+    
+    setLoading(true);
     try {
-      const result = await getAllEmployees();
+      const result = await getAllEmployees(searchName, page, pageSize);
       if (result.success) {
-        setEmployees(result.employees);
+        setEmployees(result.employees || []);
+        setPagination(result.pagination || {
+          total: 0,
+          page,
+          pageSize,
+          totalPages: 0
+        });
       } else {
         showSnackbar(result.msg || 'Failed to get employee list', 'error');
       }
     } catch (error) {
       showSnackbar('Failed to get employee list', 'error');
+    } finally {
+      setLoading(false);
     }
-  }, []);
+  }, [hasPermission, searchName, page, pageSize]);
 
   const fetchPending = useCallback(async () => {
+    if (!hasPermission) return;
+    
     try {
+      // 尝试获取待审批用户
+      setPendingUsers([]); // 先设置为空数组，避免undefined错误
       const result = await fetchPendingUsers();
       if (result.success) {
         setPendingUsers(result.users || []);
       } else {
-        showSnackbar(result.msg || 'Failed to get pending approvals', 'error');
+        // API可能不存在或出错
+        showSnackbar('获取待审批用户失败：' + (result.msg || '后端API不存在'), 'warning');
+        console.log('待审批用户API不存在或返回了错误');
       }
     } catch (error) {
-      showSnackbar('Failed to get pending approvals', 'error');
+      console.error('待审批用户API访问失败:', error);
+      showSnackbar('获取待审批用户失败，后端API可能不存在', 'warning');
     }
-  }, []);
+  }, [hasPermission]);
   
   // Load data
   useEffect(() => {
-    if (hasPermission) {
+    if (tabValue === 0) {
       fetchEmployees();
+    } else {
       fetchPending();
     }
-  }, [hasPermission, fetchEmployees, fetchPending]);
+  }, [fetchEmployees, fetchPending, tabValue, page, pageSize]);
 
   // Handle employee operations
   const handleAddEmployee = async () => {
     try {
       const result = await addEmployee(newEmployee);
       if (result.success) {
-        setEmployees([...employees, result.employee]);
+        setPage(1); // Reset to first page
+        fetchEmployees();
         setOpenDialog(false);
         showSnackbar('Employee added successfully', 'success');
         resetNewEmployee();
@@ -108,7 +142,13 @@ const EmployeePage = () => {
     try {
       const result = await deleteEmployee(employeeId);
       if (result.success) {
-        setEmployees(employees.filter(emp => emp.id !== employeeId));
+        // If current page has only one employee and not the first page, go to previous page
+        if (employees.length === 1 && page > 1) {
+          setPage(page - 1);
+        } else {
+          // Otherwise refresh current page
+          fetchEmployees();
+        }
         showSnackbar('Delete successful', 'success');
       } else {
         showSnackbar(result.msg || 'Delete failed', 'error');
@@ -171,6 +211,29 @@ const EmployeePage = () => {
     ];
     const index = str ? str.length % colors.length : 0;
     return colors[index];
+  };
+
+  // Handle search
+  const handleSearch = () => {
+    setPage(1); // Reset to first page
+    fetchEmployees();
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
+
+  // Handle page change
+  const handlePageChange = (newPage) => {
+    setPage(newPage);
+  };
+
+  // Handle page size change
+  const handlePageSizeChange = (newPageSize) => {
+    setPageSize(newPageSize);
+    setPage(1); // Reset to first page
   };
 
   // If no permission, show access denied message
@@ -244,24 +307,42 @@ const EmployeePage = () => {
               {/* Employee List */}
               {tabValue === 0 && (
                 <Box>
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    onClick={() => setOpenDialog(true)}
-                    startIcon={<PersonAddIcon />}
-                    sx={{ 
-                      mb: 3,
-                      boxShadow: 2,
-                      textTransform: 'none',
-                      borderRadius: 2
-                    }}
-                  >
-                    Add Employee
-                  </Button>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
+                    <TextField
+                      placeholder="Search by name..."
+                      size="small"
+                      value={searchName}
+                      onChange={(e) => setSearchName(e.target.value)}
+                      onKeyPress={handleKeyPress}
+                      sx={{ width: '300px' }}
+                      InputProps={{
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton onClick={handleSearch} edge="end" size="small">
+                              <SearchIcon />
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      onClick={() => setOpenDialog(true)}
+                      startIcon={<PersonAddIcon />}
+                      sx={{ 
+                        boxShadow: 2,
+                        textTransform: 'none',
+                        borderRadius: 2
+                      }}
+                    >
+                      Add Employee
+                    </Button>
+                  </Box>
 
                   <List sx={{ 
                     bgcolor: 'background.paper',
-                    maxHeight: 'calc(100vh - 300px)',
+                    maxHeight: 'calc(100vh - 320px)', // Adjusted to accommodate pagination
                     overflowY: 'auto',
                     '&::-webkit-scrollbar': {
                       width: '8px',
@@ -277,88 +358,105 @@ const EmployeePage = () => {
                       background: '#555',
                     }
                   }}>
-                    {employees.map((employee) => (
-                      <React.Fragment key={employee.id}>
-                        <ListItem
-                          onClick={() => navigate(`/employee/${employee.id}`)}
-                          sx={{
-                            cursor: 'pointer',
-                            '&:hover': {
-                              bgcolor: 'action.hover',
-                              transform: 'translateX(6px)',
-                              transition: 'all 0.2s'
-                            },
-                            borderRadius: 2,
-                            mb: 1,
-                            p: 2
-                          }}
-                          secondaryAction={
-                            <IconButton
-                              edge="end"
-                              aria-label="delete"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteEmployee(employee.id);
-                              }}
-                              sx={{
-                                '&:hover': {
-                                  color: 'error.main',
-                                }
+                    {loading ? (
+                      <Box sx={{ p: 2, textAlign: 'center' }}>
+                        <Typography>Loading...</Typography>
+                      </Box>
+                    ) : employees.length === 0 ? (
+                      <Box sx={{ p: 2, textAlign: 'center' }}>
+                        <Typography>No employees found</Typography>
+                      </Box>
+                    ) : (
+                      employees.map((employee) => (
+                        <React.Fragment key={employee.id}>
+                          <ListItem
+                            onClick={() => navigate(`/employee/${employee.id}`)}
+                            sx={{
+                              cursor: 'pointer',
+                              '&:hover': {
+                                bgcolor: 'action.hover',
+                                transform: 'translateX(6px)',
+                                transition: 'all 0.2s'
+                              },
+                              borderRadius: 2,
+                              mb: 1,
+                              p: 2
+                            }}
+                            secondaryAction={
+                              <IconButton
+                                edge="end"
+                                aria-label="delete"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteEmployee(employee.id);
+                                }}
+                                sx={{
+                                  '&:hover': {
+                                    color: 'error.main',
+                                  }
+                                }}
+                              >
+                                <DeleteIcon />
+                              </IconButton>
+                            }
+                          >
+                            <Avatar 
+                              sx={{ 
+                                mr: 2, 
+                                bgcolor: getRandomColor(employee.name),
+                                width: 40,
+                                height: 40
                               }}
                             >
-                              <DeleteIcon />
-                            </IconButton>
-                          }
-                        >
-                          <Avatar 
-                            sx={{ 
-                              mr: 2, 
-                              bgcolor: getRandomColor(employee.name),
-                              width: 40,
-                              height: 40
-                            }}
-                          >
-                            {getInitials(employee.name)}
-                          </Avatar>
-                          <ListItemText
-                            primary={
-                              <Typography variant="subtitle1" sx={{ fontWeight: 'medium' }}>
-                                {employee.name}
-                              </Typography>
-                            }
-                            secondary={
-                              <Box sx={{ mt: 0.5 }}>
-                                <Typography 
-                                  variant="body2" 
-                                  color="text.secondary"
-                                  component="span"
-                                  sx={{ mr: 2 }}
-                                >
-                                  {employee.position || 'Position not set'}
+                              {getInitials(employee.name)}
+                            </Avatar>
+                            <ListItemText
+                              primary={
+                                <Typography variant="subtitle1" sx={{ fontWeight: 'medium' }}>
+                                  {employee.name}
                                 </Typography>
-                                <Typography 
-                                  variant="body2" 
-                                  color="text.secondary"
-                                  component="span"
-                                  sx={{ mr: 2 }}
-                                >
-                                  {employee.department || 'Department not set'}
-                                </Typography>
-                                <Typography 
-                                  variant="body2" 
-                                  color="text.secondary"
-                                  component="span"
-                                >
-                                  Join Date: {employee.join_date ? new Date(employee.join_date).toLocaleDateString() : 'Not set'}
-                                </Typography>
-                              </Box>
-                            }
-                          />
-                        </ListItem>
-                        <Divider component="li" sx={{ opacity: 0.5 }} />
-                      </React.Fragment>
-                    ))}
+                              }
+                              secondary={
+                                <Box sx={{ mt: 0.5 }}>
+                                  <Typography 
+                                    variant="body2" 
+                                    color="text.secondary"
+                                    component="span"
+                                    sx={{ mr: 2 }}
+                                  >
+                                    {employee.position || 'Position not set'}
+                                  </Typography>
+                                  <Typography 
+                                    variant="body2" 
+                                    color="text.secondary"
+                                    component="span"
+                                    sx={{ mr: 2 }}
+                                  >
+                                    {employee.department || 'Department not set'}
+                                  </Typography>
+                                  <Typography 
+                                    variant="body2" 
+                                    color="text.secondary"
+                                    component="span"
+                                  >
+                                    Join Date: {employee.join_date ? new Date(employee.join_date).toLocaleDateString() : 'Not set'}
+                                  </Typography>
+                                </Box>
+                              }
+                            />
+                          </ListItem>
+                          <Divider component="li" sx={{ opacity: 0.5 }} />
+                        </React.Fragment>
+                      ))
+                    )}
                   </List>
+                  
+                  {/* Pagination component */}
+                  <Pagination 
+                    pagination={pagination}
+                    onPageChange={handlePageChange}
+                    onPageSizeChange={handlePageSizeChange}
+                  />
                 </Box>
               )}
 

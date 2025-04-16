@@ -1,5 +1,6 @@
 import express from 'express';
 import Employee from '../Models/employeeModel.js';
+import { Op } from 'sequelize';
 
 const router = express.Router();
 
@@ -9,8 +10,39 @@ const router = express.Router();
  */
 router.get('/', async (req, res) => {
   try {
-    const employees = await Employee.findAll({ order: [['created_at','DESC']] });
-    res.json({ success: true, employees });
+    const { name, page = 1, pageSize = 10 } = req.query;
+    const where = {};
+    
+    // 添加名称搜索条件
+    if (name) {
+      where.name = { [Op.like]: `%${name}%` };
+    }
+    
+    // 计算偏移量
+    const offset = (parseInt(page) - 1) * parseInt(pageSize);
+    const limit = parseInt(pageSize);
+    
+    // 获取总记录数
+    const count = await Employee.count({ where });
+    
+    // 获取分页数据
+    const employees = await Employee.findAll({ 
+      where,
+      order: [['created_at','DESC']],
+      offset,
+      limit
+    });
+    
+    res.json({ 
+      success: true, 
+      employees,
+      pagination: {
+        total: count,
+        page: parseInt(page),
+        pageSize: parseInt(pageSize),
+        totalPages: Math.ceil(count / pageSize)
+      }
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, msg: 'Failed to fetch employees' });

@@ -1,62 +1,69 @@
 import instance from './axios';
+import { handleError } from '../utils/errorHandler';
 
-// 获取订单列表
-export const fetchOrders = async (type, paid, completed, customerName, customerId, orderNumber) => {
+/**
+ * 获取订单列表，支持筛选和分页
+ * @param {string} orderType - 订单类型 (QUOTE/SALES)
+ * @param {boolean} isPaid - 是否已支付
+ * @param {boolean} isCompleted - 是否已完成
+ * @param {string} customerName - 客户名称
+ * @param {number} customerId - 客户ID 
+ * @param {string} orderNumber - 订单号
+ * @param {number} page - 页码
+ * @param {number} pageSize - 每页数量
+ * @returns {Promise<Object>} 返回订单列表和分页信息
+ */
+export const fetchOrders = async (orderType, isPaid, isCompleted, customerName, customerId, orderNumber, page = 1, pageSize = 10) => {
   try {
-    let url = '/orders';
-    const params = {};
-    
-    // 确保类型参数正确传递，添加调试日志
-    console.log("fetchOrders 参数:", { type, paid, completed, customerName, customerId, orderNumber });
-    
-    if (type) params.order_type = type.toUpperCase(); // 确保类型参数始终是大写
-    if (paid !== undefined) params.is_paid = paid;
-    if (completed !== undefined) params.is_completed = completed;
-    if (customerName) params.customerName = customerName;
-    if (customerId) params.customer_id = customerId;
-    if (orderNumber) params.order_number = orderNumber;
-    
-    // 移除模糊搜索参数，改用精确匹配
-    // if (orderNumber) params.fuzzy_search = true;
-    
-    // 设置精确匹配参数
-    if (orderNumber) params.exact_match = false; // 设置为false启用模糊匹配，但不会匹配全部
-
-    console.log("API请求参数:", params);
-    const response = await instance.get(url, { params });
-    
-    // 如果后端不支持订单号筛选，在前端过滤结果
-    if (orderNumber && response.data.success && response.data.orders) {
-      // 本地筛选，确保订单号包含搜索文本
-      response.data.orders = response.data.orders.filter(order => 
-        order.order_number && order.order_number.includes(orderNumber)
-      );
-    }
-    
-    // 如果后端不支持类型筛选，在前端过滤
-    if (type && response.data.success && response.data.orders) {
-      console.log("前端类型过滤前:", response.data.orders.length);
-      response.data.orders = response.data.orders.filter(order => 
-        order.order_type === type.toUpperCase()
-      );
-      console.log("前端类型过滤后:", response.data.orders.length);
-    }
-    
+    const response = await instance.get('/orders', {
+      params: {
+        type: orderType,
+        paid: isPaid !== undefined ? String(isPaid) : undefined,
+        completed: isCompleted !== undefined ? String(isCompleted) : undefined,
+        customerName,
+        customerId,
+        orderNumber,
+        page,
+        pageSize
+      }
+    });
     return response.data;
   } catch (error) {
-    console.error('Error fetching orders:', error);
-    return { success: false, msg: 'Failed to fetch orders' };
+    return handleError(error, 'Failed to fetch orders');
   }
 };
 
 // 获取单个订单详情
-export const fetchOrderById = async (orderId) => {
+export const fetchOrderDetail = async (orderId) => {
   try {
     const response = await instance.get(`/orders/${orderId}`);
     return response.data;
   } catch (error) {
-    console.error('Error fetching order details:', error);
-    return { success: false, msg: 'Failed to fetch order details' };
+    return handleError(error, 'Failed to fetch order details');
+  }
+};
+
+// 更新订单状态
+export const updateOrderStatus = async (orderId, isPaid, isCompleted, remark) => {
+  try {
+    const response = await instance.put(`/orders/${orderId}`, {
+      is_paid: isPaid,
+      is_completed: isCompleted,
+      remark
+    });
+    return response.data;
+  } catch (error) {
+    return handleError(error, 'Failed to update order');
+  }
+};
+
+// 编辑订单详情
+export const updateOrder = async (orderId, updateData) => {
+  try {
+    const response = await instance.put(`/orders/${orderId}/edit`, updateData);
+    return response.data;
+  } catch (error) {
+    return handleError(error, 'Failed to update order');
   }
 };
 
@@ -66,19 +73,7 @@ export const createOrder = async (orderData) => {
     const response = await instance.post('/orders', orderData);
     return response.data;
   } catch (error) {
-    console.error('Error creating order:', error);
-    return { success: false, msg: 'Failed to create order' };
-  }
-};
-
-// 更新订单状态
-export const updateOrderStatus = async (orderId, statusData) => {
-  try {
-    const response = await instance.put(`/orders/${orderId}`, statusData);
-    return response.data;
-  } catch (error) {
-    console.error('Error updating order status:', error);
-    return { success: false, msg: 'Failed to update order status' };
+    return handleError(error, 'Failed to create order');
   }
 };
 
@@ -88,18 +83,29 @@ export const deleteOrder = async (orderId) => {
     const response = await instance.delete(`/orders/${orderId}`);
     return response.data;
   } catch (error) {
-    console.error('Error deleting order:', error);
-    return { success: false, msg: 'Failed to delete order' };
+    return handleError(error, 'Failed to delete order');
   }
 };
 
-// 更新订单
-export const updateOrder = async (orderId, updateData) => {
+// 生成订单PDF
+export const generateOrderPDF = async (orderId) => {
   try {
-    const response = await instance.put(`/orders/${orderId}/edit`, updateData);
-    return response.data;
+    const response = await instance.get(`/orders/${orderId}/pdf`, {
+      responseType: 'blob'
+    });
+    
+    // 创建下载链接
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `order-${orderId}.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+    
+    return { success: true };
   } catch (error) {
-    console.error('Error updating order:', error);
-    return { success: false, msg: 'Failed to update order' };
+    return handleError(error, 'Failed to generate PDF');
   }
 };
