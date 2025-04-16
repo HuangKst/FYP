@@ -1,14 +1,16 @@
 import ExcelJS from 'exceljs';
 import instance from './axios';
 import { handleError } from '../utils/errorHandler';
-// 获取库存数据（支持按材质和规格筛选）
-export const fetchInventory = async (material, specification, lowStock = false) => {
+// 获取库存数据（支持按材质和规格筛选，增加分页功能）
+export const fetchInventory = async (material, specification, lowStock = false, page = 1, pageSize = 10) => {
   try {
     const response = await instance.get(`/inventory`, {
       params: {
         material,
         spec: specification,
         lowStock: lowStock ? 'true' : undefined,
+        page,
+        pageSize
       },
     });
     console.log("✅ Inventory data received:", response.data);

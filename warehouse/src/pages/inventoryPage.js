@@ -28,7 +28,10 @@ import {
     CardActions,
     Chip,
     InputAdornment,
-    CircularProgress
+    CircularProgress,
+    FormControl,
+    InputLabel,
+    SelectChangeEvent
 } from '@mui/material';
 import { 
     fetchInventory, 
@@ -44,6 +47,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import InventoryIcon from '@mui/icons-material/Inventory';
+import Pagination from '../component/Pagination';
 
 const InventoryPage = () => {
     const [inventory, setInventory] = useState([]);
@@ -63,6 +67,14 @@ const InventoryPage = () => {
     const [importLoading, setImportLoading] = useState(false);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
     const [viewMode, setViewMode] = useState('list'); // 'list' 或 'card'
+    
+    // 分页状态
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
+    const [pagination, setPagination] = useState({
+        total: 0,
+        totalPages: 0
+    });
 
     useEffect(() => {
         loadInventory();
@@ -71,16 +83,17 @@ const InventoryPage = () => {
 
     const handleSearch = useCallback(async () => {
         try {
-        const data = await fetchInventory(selectedMaterial, searchKeyword, lowStockOnly);
+        const data = await fetchInventory(selectedMaterial, searchKeyword, lowStockOnly, page, pageSize);
         if (data.success) {
             setInventory(data.inventory);
+            setPagination(data.pagination || { total: 0, totalPages: 0 });
             } else {
                 showSnackbar(data.msg || 'Failed to get inventory data', 'error');
             }
         } catch (error) {
             showSnackbar('Failed to get inventory data', 'error');
         }
-    }, [selectedMaterial, searchKeyword, lowStockOnly]); // 只有这三个值变化时，handleSearch 才会更新
+    }, [selectedMaterial, searchKeyword, lowStockOnly, page, pageSize]); // 添加分页参数到依赖项
 
     useEffect(() => {
         handleSearch();
@@ -88,8 +101,11 @@ const InventoryPage = () => {
 
     const loadInventory = async () => {
         try {
-        const data = await fetchInventory();
-        if (data.success) setInventory(data.inventory);
+        const data = await fetchInventory('', '', false, page, pageSize);
+        if (data.success) {
+            setInventory(data.inventory);
+            setPagination(data.pagination || { total: 0, totalPages: 0 });
+        }
             else showSnackbar(data.msg || 'Failed to get inventory data', 'error');
         } catch (error) {
             showSnackbar('Failed to get inventory data', 'error');
@@ -130,6 +146,7 @@ const InventoryPage = () => {
                     created_at: new Date().toISOString().split('T')[0]
                 });
             setOpenDialog(false);
+            setPage(1); // 重置到第一页
             loadInventory();
                 showSnackbar('Item added to inventory successfully', 'success');
             } else {
@@ -144,7 +161,13 @@ const InventoryPage = () => {
         try {
             const result = await deleteInventoryItem(itemId);
             if (result.success) {
-                setInventory(inventory.filter(item => item.id !== itemId));
+                // 如果当前页只有一条数据且不是第一页，则返回上一页
+                if (inventory.length === 1 && page > 1) {
+                    setPage(page - 1);
+                } else {
+                    // 否则刷新当前页
+                    handleSearch();
+                }
                 showSnackbar('Delete successful', 'success');
             } else {
                 showSnackbar(result.msg || 'Delete failed', 'error');
@@ -219,6 +242,17 @@ const InventoryPage = () => {
         if (quantity < 20) return { label: 'Low Stock', color: 'error' };
         if (quantity < 50) return { label: 'Medium Stock', color: 'warning' };
         return { label: 'In Stock', color: 'success' };
+    };
+
+    // 处理页码变化
+    const handlePageChange = (event, newPage) => {
+        setPage(newPage);
+    };
+
+    // 处理每页数量变化
+    const handlePageSizeChange = (event) => {
+        setPageSize(parseInt(event.target.value));
+        setPage(1); // 重置到第一页
     };
 
     return (
@@ -388,9 +422,10 @@ const InventoryPage = () => {
 
                         {/* Inventory List - List View */}
                         {viewMode === 'list' && (
+                            <>
                             <List sx={{ 
                                 bgcolor: 'background.paper',
-                                maxHeight: 'calc(100vh - 300px)',
+                                maxHeight: 'calc(100vh - 350px)', // 减少高度以适应分页控件
                                 overflowY: 'auto',
                                 '&::-webkit-scrollbar': {
                                     width: '8px',
@@ -519,12 +554,21 @@ const InventoryPage = () => {
                                     </Box>
                                 )}
                             </List>
+                            
+                            {/* 使用分页组件 */}
+                            <Pagination 
+                                pagination={pagination}
+                                onPageChange={handlePageChange}
+                                onPageSizeChange={handlePageSizeChange}
+                            />
+                            </>
                         )}
 
                         {/* Inventory List - Card View */}
                         {viewMode === 'card' && (
+                            <>
                             <Grid container spacing={3} sx={{
-                                maxHeight: 'calc(100vh - 300px)',
+                                maxHeight: 'calc(100vh - 350px)', // 减少高度以适应分页控件
                                 overflowY: 'auto',
                                 '&::-webkit-scrollbar': {
                                     width: '8px',
@@ -623,6 +667,14 @@ const InventoryPage = () => {
                                     </Grid>
                                 )}
                             </Grid>
+                            
+                            {/* 使用分页组件 */}
+                            <Pagination 
+                                pagination={pagination}
+                                onPageChange={handlePageChange}
+                                onPageSizeChange={handlePageSizeChange}
+                            />
+                            </>
                         )}
                         </Box>
                     </Paper>

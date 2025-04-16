@@ -8,18 +8,41 @@ const router = express.Router();
 
 /**
  * GET /api/inventory
- * 查询库存 (可加筛选: material=?, specification=?)
+ * 查询库存 (可加筛选: material=?, specification=?, page=?, pageSize=?)
  */
 router.get('/',async (req, res) => {
   try {
-    const { material, spec,lowStock } = req.query;
+    const { material, spec, lowStock, page = 1, pageSize = 10 } = req.query;
     const where = {};
     if (material) where.material = material;
     if (spec) where.specification = { [Op.like]: `%${spec}%` };
     if (lowStock === 'true') where.quantity = { [Op.lt]: 50 }; // 低于 50 触发预警
 
-    const list = await Inventory.findAll({ where, order: [['specification','ASC']] });
-    res.json({ success: true, inventory: list });
+    // 计算偏移量
+    const offset = (parseInt(page) - 1) * parseInt(pageSize);
+    const limit = parseInt(pageSize);
+
+    // 获取总记录数
+    const count = await Inventory.count({ where });
+    
+    // 获取分页数据
+    const list = await Inventory.findAll({ 
+      where, 
+      order: [['specification','ASC']],
+      offset,
+      limit
+    });
+    
+    res.json({ 
+      success: true, 
+      inventory: list,
+      pagination: {
+        total: count,
+        page: parseInt(page),
+        pageSize: parseInt(pageSize),
+        totalPages: Math.ceil(count / pageSize)
+      }
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, msg: 'Failed to fetch inventory' });
