@@ -20,7 +20,7 @@ import {
     Box,
     Container
 } from '@mui/material';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { fetchOrderById, updateOrderStatus, deleteOrder } from '../../api/orderApi';
 import PrintIcon from '@mui/icons-material/Print';
 import OrderPrintPreview from '../OrderPrintPreview';
@@ -54,6 +54,7 @@ const hasDeletePermission = (user) => {
 const OrderDetail = () => {
     const { orderId } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
     const [order, setOrder] = useState(null);
     const [loading, setLoading] = useState(false);
     const [updating, setUpdating] = useState(false);
@@ -75,6 +76,26 @@ const OrderDetail = () => {
     console.log('当前用户信息:', currentUser);
     console.log('是否有编辑权限:', canEdit);
     console.log('是否有删除权限:', canDelete);
+
+    // 解析URL查询参数，确定返回目标
+    const getNavigationTarget = () => {
+        const queryParams = new URLSearchParams(location.search);
+        const fromPage = queryParams.get('from');
+        const customerId = queryParams.get('customerId');
+        
+        // 如果来自客户详情页且提供了customerId，则返回客户详情页
+        if (fromPage === 'customer' && customerId) {
+            return `/customers/${customerId}`;
+        }
+        
+        // 默认返回订单列表页
+        return '/orders';
+    };
+    
+    // 处理返回按钮点击
+    const handleBackClick = () => {
+        navigate(getNavigationTarget());
+    };
 
     // 加载订单详情
     useEffect(() => {
@@ -167,7 +188,7 @@ const OrderDetail = () => {
             const response = await deleteOrder(orderId);
             if (response.success) {
                 // 返回到订单列表页
-                navigate('/orders');
+                navigate(getNavigationTarget());
             } else {
                 setError(response.msg || '删除订单失败');
             }
@@ -214,8 +235,8 @@ const OrderDetail = () => {
                         >
                             Print
                         </Button>
-                        <Button variant="outlined" onClick={() => navigate('/orders')}>
-                            Back to Orders
+                        <Button variant="outlined" onClick={handleBackClick}>
+                            Back
                         </Button>
                     </Box>
                 </Box>

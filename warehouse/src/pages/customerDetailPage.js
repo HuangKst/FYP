@@ -139,8 +139,8 @@ const CustomerDetailPage = () => {
   };
 
   const handleViewOrderDetail = (orderId) => {
-    // 导航到订单详情页
-    navigate(`/order/${orderId}`);
+    // 导航到订单详情页，添加来源参数
+    navigate(`/order/${orderId}?from=customer&customerId=${customerId}`);
   };
 
   if (loading) {
