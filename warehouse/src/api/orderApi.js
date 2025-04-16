@@ -1,7 +1,7 @@
 import instance from './axios';
 
 // 获取订单列表
-export const fetchOrders = async (type, paid, completed, customerName) => {
+export const fetchOrders = async (type, paid, completed, customerName, customerId) => {
   try {
     let url = '/orders';
     const params = {};
@@ -10,6 +10,7 @@ export const fetchOrders = async (type, paid, completed, customerName) => {
     if (paid !== undefined) params.is_paid = paid;
     if (completed !== undefined) params.is_completed = completed;
     if (customerName) params.customerName = customerName;
+    if (customerId) params.customer_id = customerId;
 
     const response = await instance.get(url, { params });
     return response.data;

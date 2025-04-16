@@ -1,4 +1,3 @@
-
 import instance from './axios';
 import { handleError } from '../utils/errorHandler';
 
@@ -49,6 +48,19 @@ export const deleteCustomer = async (customerId) => {
     return response.data;
   } catch (error) {
     return handleError(error, 'Failed to delete customer');
+  }
+};
+
+// 获取客户所有订单
+export const getCustomerOrders = async (customerId) => {
+  try {
+    // 使用查询参数获取特定客户的订单
+    const response = await instance.get('/orders', {
+      params: { customer_id: customerId }
+    });
+    return response.data;
+  } catch (error) {
+    return handleError(error, '获取客户订单失败');
   }
 };
 

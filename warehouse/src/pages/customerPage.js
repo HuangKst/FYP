@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getCustomers, addCustomer, deleteCustomer } from '../api/customerApi';
+import { useNavigate } from 'react-router-dom';
 import { 
   TextField, 
   Table, 
@@ -32,6 +33,7 @@ const CustomerPage = () => {
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', address: '', remark: '' });
   const [openDialog, setOpenDialog] = useState(false);
   const customersPerPage = 20;
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchCustomers();
@@ -88,6 +90,10 @@ const CustomerPage = () => {
     if (response.success) {
       fetchCustomers();
     }
+  };
+
+  const handleViewCustomerDetail = (customerId) => {
+    navigate(`/customers/${customerId}`);
   };
 
   return (
@@ -159,13 +165,24 @@ const CustomerPage = () => {
                         <TableCell>{customer.phone}</TableCell>
                         <TableCell>{customer.address}</TableCell>
                         <TableCell>
-                          <Button 
-                            color="error" 
-                            variant="outlined"
-                            onClick={() => handleDeleteCustomer(customer.id)}
-                          >
-                            Delete
-                          </Button>
+                          <Box sx={{ display: 'flex', gap: 1 }}>
+                            <Button
+                              color="primary"
+                              variant="outlined"
+                              size="small"
+                              onClick={() => handleViewCustomerDetail(customer.id)}
+                            >
+                              Details
+                            </Button>
+                            <Button 
+                              color="error" 
+                              variant="outlined"
+                              size="small"
+                              onClick={() => handleDeleteCustomer(customer.id)}
+                            >
+                              Delete
+                            </Button>
+                          </Box>
                         </TableCell>
                       </TableRow>
                     ))}

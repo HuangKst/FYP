@@ -19,6 +19,7 @@ import OrderDetailPage from "./pages/orderDetail.js";
 import EditOrderPage from "./pages/editOrderPage.js";
 import EmployeePage from "./pages/employeePage.js";
 import EmployeeDetailPage from "./pages/employeeDetailPage.js";
+import CustomerDetailPage from "./pages/customerDetailPage.js";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -46,6 +47,7 @@ const Layout = () => {
             <Route path="/home" element={<HomePage />} />  
             <Route path="/inventory" element={<InventoryPage/>} />
             <Route path="/customer" element={<CustomerPage/>} />
+            <Route path="/customers/:customerId" element={<CustomerDetailPage/>} />
             <Route path="/orders" element={<OrderPage/>} />
             <Route path="/order/:orderId" element={<OrderDetailPage/>} />
             <Route path="/edit-order/:orderId" element={<EditOrderPage/>} />
