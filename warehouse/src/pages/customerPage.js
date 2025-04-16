@@ -17,12 +17,16 @@ import {
   DialogActions, 
   DialogContent, 
   DialogTitle,
-  Container
+  Container,
+  InputAdornment,
+  IconButton
 } from '@mui/material';
+import SearchIcon from '@mui/icons-material/Search';
 
 const CustomerPage = () => {
   const [customers, setCustomers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [filteredCustomers, setFilteredCustomers] = useState([]);
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', address: '', remark: '' });
@@ -37,6 +41,16 @@ const CustomerPage = () => {
     const response = await getCustomers();
     if (response.success) {
       setCustomers(response.customers);
+    }
+  };
+
+  const handleSearch = () => {
+    setSearchTerm(searchInput);
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleSearch();
     }
   };
 
@@ -105,9 +119,19 @@ const CustomerPage = () => {
                 <TextField
                   label="Search customer by name"
                   variant="outlined"
-                  fullWidth
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  sx={{ maxWidth: '350px', flexGrow: 1 }}
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton onClick={handleSearch} edge="end">
+                          <SearchIcon />
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
                 />
                 <Button 
                   variant="contained" 
