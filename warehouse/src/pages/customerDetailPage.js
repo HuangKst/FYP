@@ -25,6 +25,8 @@ const CustomerDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [orderType, setOrderType] = useState('all'); // 'all', 'quote', 'sale'
   const [paymentStatus, setPaymentStatus] = useState('all'); // 'all', 'pending', 'paid', 'partial'
+  const [orderNumberFilter, setOrderNumberFilter] = useState('');
+  const [filteredOrders, setFilteredOrders] = useState([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -53,6 +55,7 @@ const CustomerDetailPage = () => {
                 items: order.order_items || []
               }));
               setOrders(formattedOrders);
+              setFilteredOrders(formattedOrders);
             }
           } catch (orderError) {
             console.error('获取订单失败，尝试备用方案', orderError);
@@ -74,6 +77,7 @@ const CustomerDetailPage = () => {
                   items: order.order_items || []
                 }));
                 setOrders(formattedOrders);
+                setFilteredOrders(formattedOrders);
               }
             } catch (backupError) {
               console.error('备用方案也失败，尝试最后方法', backupError);
@@ -91,6 +95,7 @@ const CustomerDetailPage = () => {
                   items: order.order_items || []
                 }));
                 setOrders(formattedOrders);
+                setFilteredOrders(formattedOrders);
               }
             }
           }
@@ -120,19 +125,45 @@ const CustomerDetailPage = () => {
     return undefined;
   };
 
-  const filteredOrders = orders.filter(order => {
-    // 筛选订单类型
-    if (orderType !== 'all' && order.type !== orderType) {
-      return false;
-    }
+  // 当搜索到订单时的处理函数
+  const handleOrderFound = (order) => {
+    // 不跳转页面，只是将找到的订单设置为筛选后的唯一结果
+    setFilteredOrders(Array.isArray(order) ? order : [order]);
+    // 设置订单号筛选器为空，让UI显示所有找到的结果
+    setOrderNumberFilter('');
+  };
+
+  // 当搜索不到订单时的处理函数
+  const handleNoOrderFound = () => {
+    // 显示空的订单列表
+    setFilteredOrders([]);
+    // 重置筛选条件
+    setOrderNumberFilter('');
+  };
+
+  // 当筛选条件变化时更新过滤后的订单
+  useEffect(() => {
+    const filtered = orders.filter(order => {
+      // 如果设置了订单号筛选，优先使用订单号筛选
+      if (orderNumberFilter && order.orderNumber !== orderNumberFilter) {
+        return false;
+      }
+      
+      // 筛选订单类型
+      if (orderType !== 'all' && order.type !== orderType) {
+        return false;
+      }
+      
+      // 筛选付款状态（仅适用于销售订单）
+      if (order.type === 'sale' && paymentStatus !== 'all' && order.status !== paymentStatus) {
+        return false;
+      }
+      
+      return true;
+    });
     
-    // 筛选付款状态（仅适用于销售订单）
-    if (order.type === 'sale' && paymentStatus !== 'all' && order.status !== paymentStatus) {
-      return false;
-    }
-    
-    return true;
-  });
+    setFilteredOrders(filtered);
+  }, [orders, orderType, paymentStatus, orderNumberFilter]);
 
   const handleBack = () => {
     navigate('/customer');
@@ -213,6 +244,9 @@ const CustomerDetailPage = () => {
             paymentStatus={paymentStatus}
             setPaymentStatus={setPaymentStatus}
             onViewOrderDetail={handleViewOrderDetail}
+            customerId={customerId}
+            onOrderFound={handleOrderFound}
+            onNoOrderFound={handleNoOrderFound}
           />
         </Box>
       </Box>

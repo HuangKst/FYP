@@ -19,6 +19,7 @@ import {
   MenuItem,
   Paper
 } from '@mui/material';
+import OrderNumberSearch from '../button/searchButtonByOrderID';
 
 // 客户基本信息卡片组件
 export const CustomerInfoCard = ({ customer }) => {
@@ -81,40 +82,49 @@ export const OrderStatusChip = ({ type, status }) => {
 };
 
 // 订单筛选器组件
-export const OrderFilters = ({ orderType, setOrderType, paymentStatus, setPaymentStatus }) => {
+export const OrderFilters = ({ orderType, setOrderType, paymentStatus, setPaymentStatus, customerId, onOrderFound, onNoOrderFound }) => {
   return (
-    <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
-      <FormControl sx={{ minWidth: 150 }}>
-        <InputLabel id="order-type-label">Order Type</InputLabel>
-        <Select
-          labelId="order-type-label"
-          value={orderType}
-          label="Order Type"
-          onChange={(e) => setOrderType(e.target.value)}
-          size="small"
-        >
-          <MenuItem value="all">All Types</MenuItem>
-          <MenuItem value="quote">Quote</MenuItem>
-          <MenuItem value="sale">Sales Order</MenuItem>
-        </Select>
-      </FormControl>
-      
-      {orderType === 'all' || orderType === 'sale' ? (
+    <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 2, mb: 3, alignItems: { xs: 'flex-start', md: 'center' } }}>
+      <Box sx={{ display: 'flex', gap: 2, flexGrow: 1 }}>
         <FormControl sx={{ minWidth: 150 }}>
-          <InputLabel id="payment-status-label">Payment Status</InputLabel>
+          <InputLabel id="order-type-label">Order Type</InputLabel>
           <Select
-            labelId="payment-status-label"
-            value={paymentStatus}
-            label="Payment Status"
-            onChange={(e) => setPaymentStatus(e.target.value)}
+            labelId="order-type-label"
+            value={orderType}
+            label="Order Type"
+            onChange={(e) => setOrderType(e.target.value)}
             size="small"
           >
-            <MenuItem value="all">All Status</MenuItem>
-            <MenuItem value="pending">Unpaid</MenuItem>
-            <MenuItem value="paid">Paid</MenuItem>
+            <MenuItem value="all">All Types</MenuItem>
+            <MenuItem value="quote">Quote</MenuItem>
+            <MenuItem value="sale">Sales Order</MenuItem>
           </Select>
         </FormControl>
-      ) : null}
+        
+        {orderType === 'all' || orderType === 'sale' ? (
+          <FormControl sx={{ minWidth: 150 }}>
+            <InputLabel id="payment-status-label">Payment Status</InputLabel>
+            <Select
+              labelId="payment-status-label"
+              value={paymentStatus}
+              label="Payment Status"
+              onChange={(e) => setPaymentStatus(e.target.value)}
+              size="small"
+            >
+              <MenuItem value="all">All Status</MenuItem>
+              <MenuItem value="pending">Unpaid</MenuItem>
+              <MenuItem value="paid">Paid</MenuItem>
+            </Select>
+          </FormControl>
+        ) : null}
+      </Box>
+      
+      {/* 订单号搜索组件 */}
+      <OrderNumberSearch 
+        customerId={customerId} 
+        onOrderFound={onOrderFound} 
+        onNoOrderFound={onNoOrderFound} 
+      />
     </Box>
   );
 };
@@ -143,7 +153,7 @@ export const CustomerOrdersList = ({ orders, onViewOrderDetail }) => {
                 <TableCell>
                   {order.type === 'quote' ? 'Quote' : 'Sales Order'}
                 </TableCell>
-                <TableCell>¥{order.total.toLocaleString()}</TableCell>
+                <TableCell>¥{(order.total || 0).toLocaleString()}</TableCell>
                 <TableCell>
                   <OrderStatusChip type={order.type} status={order.status} />
                 </TableCell>
@@ -178,7 +188,10 @@ export const CustomerOrdersHistory = ({
   setOrderType, 
   paymentStatus, 
   setPaymentStatus,
-  onViewOrderDetail 
+  onViewOrderDetail,
+  customerId,
+  onOrderFound,
+  onNoOrderFound
 }) => {
   return (
     <Paper sx={{ p: 3, borderRadius: 2 }}>
@@ -191,6 +204,9 @@ export const CustomerOrdersHistory = ({
         setOrderType={setOrderType}
         paymentStatus={paymentStatus}
         setPaymentStatus={setPaymentStatus}
+        customerId={customerId}
+        onOrderFound={onOrderFound}
+        onNoOrderFound={onNoOrderFound}
       />
 
       <CustomerOrdersList orders={orders} onViewOrderDetail={onViewOrderDetail} />

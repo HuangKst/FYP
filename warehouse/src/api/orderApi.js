@@ -1,7 +1,7 @@
 import instance from './axios';
 
 // 获取订单列表
-export const fetchOrders = async (type, paid, completed, customerName, customerId) => {
+export const fetchOrders = async (type, paid, completed, customerName, customerId, orderNumber) => {
   try {
     let url = '/orders';
     const params = {};
@@ -11,8 +11,24 @@ export const fetchOrders = async (type, paid, completed, customerName, customerI
     if (completed !== undefined) params.is_completed = completed;
     if (customerName) params.customerName = customerName;
     if (customerId) params.customer_id = customerId;
+    if (orderNumber) params.order_number = orderNumber;
+    
+    // 移除模糊搜索参数，改用精确匹配
+    // if (orderNumber) params.fuzzy_search = true;
+    
+    // 设置精确匹配参数
+    if (orderNumber) params.exact_match = false; // 设置为false启用模糊匹配，但不会匹配全部
 
     const response = await instance.get(url, { params });
+    
+    // 如果后端不支持订单号筛选，在前端过滤结果
+    if (orderNumber && response.data.success && response.data.orders) {
+      // 本地筛选，确保订单号包含搜索文本
+      response.data.orders = response.data.orders.filter(order => 
+        order.order_number && order.order_number.includes(orderNumber)
+      );
+    }
+    
     return response.data;
   } catch (error) {
     console.error('Error fetching orders:', error);

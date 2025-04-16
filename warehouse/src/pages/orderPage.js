@@ -22,6 +22,7 @@ import {
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { fetchOrders } from '../api/orderApi';
+import OrderNumberSearch from '../component/button/searchButtonByOrderID';
 
 const OrderPage = () => {
     const navigate = useNavigate();
@@ -33,7 +34,6 @@ const OrderPage = () => {
     const [isPaid, setIsPaid] = useState(null);
     const [isCompleted, setIsCompleted] = useState(null);
     const [customerName, setCustomerName] = useState('');
-    const [orderNumber, setOrderNumber] = useState('');
 
     // 导航到订单详情页面
     const handleOpenDetail = (orderId) => {
@@ -44,39 +44,72 @@ const OrderPage = () => {
     const loadOrders = useCallback(async () => {
         setLoading(true);
         try {
-            // 如果有订单号，则使用订单号进行精确搜索
-            if (orderNumber) {
-                // 向后端API传递订单号
-                const data = await fetchOrders();
-                if (data.success) {
-                    // 前端过滤订单号（如果后端API不支持订单号查询）
-                    setOrders(data.orders.filter(order => 
-                        order.order_number && order.order_number.includes(orderNumber)
-                    ));
-                }
-            } else {
-                // 否则使用其他条件进行搜索
-                const data = await fetchOrders(
-                    orderType,
-                    isPaid !== null ? isPaid : undefined,
-                    isCompleted !== null ? isCompleted : undefined,
-                    customerName
-                );
-                if (data.success) {
-                    setOrders(data.orders || []);
-                }
+            // 修改为仅使用其他筛选条件，订单号搜索将由OrderNumberSearch组件处理
+            const data = await fetchOrders(
+                orderType,
+                isPaid !== null ? isPaid : undefined,
+                isCompleted !== null ? isCompleted : undefined,
+                customerName
+            );
+            if (data.success) {
+                setOrders(data.orders || []);
             }
         } catch (error) {
             console.error('Error loading orders:', error);
         } finally {
             setLoading(false);
         }
-    }, [orderType, isPaid, isCompleted, customerName, orderNumber]);
+    }, [orderType, isPaid, isCompleted, customerName]);
 
     // 初始加载和筛选条件变化时重新加载数据
     useEffect(() => {
         loadOrders();
     }, [loadOrders]);
+
+    // 处理订单搜索结果
+    const handleOrderFound = (order) => {
+        // 将组件返回的格式化订单数据转换为页面表格期望的格式
+        const convertToTableFormat = (orders) => {
+            return orders.map(order => {
+                // 如果已经是原始API格式，直接返回
+                if (order.order_number && order.created_at) {
+                    return order;
+                }
+                
+                // 否则进行格式转换
+                return {
+                    id: order.id,
+                    order_number: order.orderNumber,
+                    // 修复日期格式问题：确保使用原始日期字符串或尝试转换日期对象为ISO格式
+                    created_at: typeof order.date === 'string' ? new Date(order.date).toISOString() : new Date().toISOString(),
+                    // 保持客户信息
+                    Customer: order.Customer || { name: "客户" },
+                    customer_id: order.customer_id,
+                    total_price: order.total || 0,
+                    order_type: order.type === 'quote' ? 'QUOTE' : 'SALES',
+                    is_paid: order.status === 'paid' ? 1 : 0,
+                    is_completed: order.is_completed || false
+                };
+            });
+        };
+
+        if (Array.isArray(order)) {
+            // 无论找到几个订单，都只在当前页面更新订单列表
+            console.log("原始订单数据:", order);
+            const convertedOrders = convertToTableFormat(order);
+            console.log("转换后订单数据:", convertedOrders);
+            setOrders(convertedOrders);
+        } else if (order) {
+            // 如果是单个订单对象，也需要转换格式
+            setOrders(convertToTableFormat([order]));
+        }
+    };
+
+    // 处理未找到订单的情况
+    const handleNoOrderFound = () => {
+        // 可以选择显示提示或其他操作
+        alert("没有找到匹配的订单");
+    };
 
     // 搜索按钮点击处理
     const handleSearch = () => {
@@ -89,7 +122,8 @@ const OrderPage = () => {
         setIsPaid(null);
         setIsCompleted(null);
         setCustomerName('');
-        setOrderNumber('');
+        // 重置后重新加载所有订单
+        loadOrders();
     };
 
     // 根据类型获取总金额
@@ -137,13 +171,11 @@ const OrderPage = () => {
                     {/* 筛选区域 */}
                     <Paper sx={{ p: 3, mb: 3, borderRadius: 2 }}>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-                                {/* 订单号搜索 */}
-                                <TextField
-                                    label="Order Number"
-                                    value={orderNumber}
-                                    onChange={(e) => setOrderNumber(e.target.value)}
-                                    sx={{ minWidth: '150px' }}
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
+                                {/* 替换订单号输入框为OrderNumberSearch组件 */}
+                                <OrderNumberSearch 
+                                    onOrderFound={handleOrderFound}
+                                    onNoOrderFound={handleNoOrderFound}
                                 />
                                 
                                 {/* 订单类型选择 */}
@@ -208,7 +240,7 @@ const OrderPage = () => {
                             {/* 操作按钮 */}
                             <Box sx={{ display: 'flex', gap: 2 }}>
                                 <Button variant="contained" color="primary" onClick={handleSearch}>
-                                    Search
+                                    Apply Filters
                                 </Button>
                                 <Button variant="outlined" onClick={handleReset}>
                                     Reset
@@ -245,13 +277,13 @@ const OrderPage = () => {
                                 <TableBody>
                                     {loading ? (
                                         <TableRow>
-                                            <TableCell colSpan={8} align="center">
+                                            <TableCell colSpan={9} align="center">
                                                 <CircularProgress />
                                             </TableCell>
                                         </TableRow>
                                     ) : orders.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={8} align="center">
+                                            <TableCell colSpan={9} align="center">
                                                 No Data
                                             </TableCell>
                                         </TableRow>
