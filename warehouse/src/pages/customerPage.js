@@ -25,7 +25,7 @@ const CustomerPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [filteredCustomers, setFilteredCustomers] = useState([]);
-  const [newCustomer, setNewCustomer] = useState({ name: '', phone: '' });
+  const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', address: '', remark: '' });
   const [openDialog, setOpenDialog] = useState(false);
   const customersPerPage = 20;
 
@@ -56,10 +56,15 @@ const CustomerPage = () => {
   };
 
   const handleAddCustomer = async () => {
-    const response = await addCustomer(newCustomer);
+    const customerData = { ...newCustomer };
+    if (customerData.remark === '') {
+      customerData.remark = null;
+    }
+    
+    const response = await addCustomer(customerData);
     if (response.success) {
       fetchCustomers();
-      setNewCustomer({ name: '', phone: '' });
+      setNewCustomer({ name: '', phone: '', address: '', remark: '' });
       setOpenDialog(false);
     }
   };
@@ -119,6 +124,7 @@ const CustomerPage = () => {
                     <TableRow>
                       <TableCell>Name</TableCell>
                       <TableCell>Phone</TableCell>
+                      <TableCell>Address</TableCell>
                       <TableCell>Actions</TableCell>
                     </TableRow>
                   </TableHead>
@@ -127,6 +133,7 @@ const CustomerPage = () => {
                       <TableRow key={customer.id}>
                         <TableCell>{customer.name}</TableCell>
                         <TableCell>{customer.phone}</TableCell>
+                        <TableCell>{customer.address}</TableCell>
                         <TableCell>
                           <Button 
                             color="error" 
@@ -177,6 +184,22 @@ const CustomerPage = () => {
             margin="normal"
             value={newCustomer.phone}
             onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
+          />
+          <TextField
+            label="Address"
+            fullWidth
+            margin="normal"
+            value={newCustomer.address}
+            onChange={(e) => setNewCustomer({ ...newCustomer, address: e.target.value })}
+          />
+          <TextField
+            label="Remark"
+            fullWidth
+            margin="normal"
+            multiline
+            rows={3}
+            value={newCustomer.remark}
+            onChange={(e) => setNewCustomer({ ...newCustomer, remark: e.target.value })}
           />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
