@@ -17,11 +17,15 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Paper
+  Paper,
+  TextField,
+  InputAdornment,
+  IconButton
 } from '@mui/material';
 import OrderNumberSearch from '../button/searchButtonByOrderID';
+import SearchIcon from '@mui/icons-material/Search';
 
-// 客户基本信息卡片组件
+// Customer basic information card component
 export const CustomerInfoCard = ({ customer }) => {
   return (
     <Card sx={{ mb: 3, borderRadius: 2 }}>
@@ -61,7 +65,7 @@ export const CustomerInfoCard = ({ customer }) => {
   );
 };
 
-// 订单状态标签组件
+// Order status chip component
 export const OrderStatusChip = ({ type, status }) => {
   if (type === 'quote') {
     return <Chip label="Quote" color="info" size="small" />;
@@ -81,55 +85,57 @@ export const OrderStatusChip = ({ type, status }) => {
   return null;
 };
 
-// 订单筛选器组件
+// Order filter component - updated to match the new UI design
 export const OrderFilters = ({ orderType, setOrderType, paymentStatus, setPaymentStatus, customerId, onOrderFound, onNoOrderFound }) => {
   return (
-    <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 2, mb: 3, alignItems: { xs: 'flex-start', md: 'center' } }}>
-      <Box sx={{ display: 'flex', gap: 2, flexGrow: 1 }}>
-        <FormControl sx={{ minWidth: 150 }}>
-          <InputLabel id="order-type-label">Order Type</InputLabel>
-          <Select
-            labelId="order-type-label"
-            value={orderType}
-            label="Order Type"
-            onChange={(e) => setOrderType(e.target.value)}
-            size="small"
-          >
-            <MenuItem value="all">All Types</MenuItem>
-            <MenuItem value="quote">Quote</MenuItem>
-            <MenuItem value="sale">Sales Order</MenuItem>
-          </Select>
-        </FormControl>
+    <Box sx={{ mb: 3 }}>
+      <Grid container spacing={2} alignItems="center">
+        <Grid item xs={12} sm={3}>
+          <FormControl fullWidth size="small">
+            <InputLabel id="order-type-label">Order Type</InputLabel>
+            <Select
+              labelId="order-type-label"
+              value={orderType}
+              label="Order Type"
+              onChange={(e) => setOrderType(e.target.value)}
+            >
+              <MenuItem value="all">All Types</MenuItem>
+              <MenuItem value="quote">Quote</MenuItem>
+              <MenuItem value="sale">Sales Order</MenuItem>
+            </Select>
+          </FormControl>
+        </Grid>
         
-        {orderType === 'all' || orderType === 'sale' ? (
-          <FormControl sx={{ minWidth: 150 }}>
+        <Grid item xs={12} sm={3}>
+          <FormControl fullWidth size="small">
             <InputLabel id="payment-status-label">Payment Status</InputLabel>
             <Select
               labelId="payment-status-label"
               value={paymentStatus}
               label="Payment Status"
               onChange={(e) => setPaymentStatus(e.target.value)}
-              size="small"
             >
               <MenuItem value="all">All Status</MenuItem>
               <MenuItem value="pending">Unpaid</MenuItem>
               <MenuItem value="paid">Paid</MenuItem>
             </Select>
           </FormControl>
-        ) : null}
-      </Box>
-      
-      {/* 订单号搜索组件 */}
-      <OrderNumberSearch 
-        customerId={customerId} 
-        onOrderFound={onOrderFound} 
-        onNoOrderFound={onNoOrderFound} 
-      />
+        </Grid>
+        
+        <Grid item xs={12} sm={6}>
+          <OrderNumberSearch 
+            customerId={customerId} 
+            onOrderFound={onOrderFound} 
+            onNoOrderFound={onNoOrderFound}
+            standalone={false} 
+          />
+        </Grid>
+      </Grid>
     </Box>
   );
 };
 
-// 订单列表组件
+// Customer order list component
 export const CustomerOrdersList = ({ orders, onViewOrderDetail }) => {
   return (
     <TableContainer>
@@ -181,7 +187,7 @@ export const CustomerOrdersList = ({ orders, onViewOrderDetail }) => {
   );
 };
 
-// 订单历史组件（包含筛选器和列表）
+// Order history component (includes filters and list)
 export const CustomerOrdersHistory = ({ 
   orders, 
   orderType, 

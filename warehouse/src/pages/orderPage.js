@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     Container,
     Typography,
@@ -18,11 +18,16 @@ import {
     FormControlLabel,
     Checkbox,
     CircularProgress,
-    Box
+    Box,
+    Grid,
+    Divider
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { fetchOrders } from '../api/orderApi';
 import OrderNumberSearch from '../component/button/searchButtonByOrderID';
+import SearchIcon from '@mui/icons-material/Search';
+import ClearIcon from '@mui/icons-material/Clear';
+import AddIcon from '@mui/icons-material/Add';
 
 const OrderPage = () => {
     const navigate = useNavigate();
@@ -34,87 +39,107 @@ const OrderPage = () => {
     const [isPaid, setIsPaid] = useState(null);
     const [isCompleted, setIsCompleted] = useState(null);
     const [customerName, setCustomerName] = useState('');
+    // 订单号搜索引用
+    const orderNumberSearchRef = useRef(null);
 
     // 导航到订单详情页面
     const handleOpenDetail = (orderId) => {
         navigate(`/order/${orderId}`);
     };
 
-    // 加载订单数据
-    const loadOrders = useCallback(async () => {
+    // 执行搜索，整合所有搜索条件
+    const handleSearch = async () => {
         setLoading(true);
         try {
-            // 修改为仅使用其他筛选条件，订单号搜索将由OrderNumberSearch组件处理
-            const data = await fetchOrders(
-                orderType,
+            // 获取订单号
+            const orderNumber = window.orderNumberSearchComponent?.getOrderNumber() || '';
+            console.log("搜索条件:", {
+                orderType, 
+                isPaid,
+                isCompleted,
+                customerName,
+                orderNumber
+            });
+            
+            // 调用API搜索订单
+            const response = await fetchOrders(
+                orderType,  // 这里直接传递下拉框的值
                 isPaid !== null ? isPaid : undefined,
                 isCompleted !== null ? isCompleted : undefined,
-                customerName
+                customerName,
+                null,  // customerId
+                orderNumber
             );
-            if (data.success) {
-                setOrders(data.orders || []);
+            
+            console.log("API返回原始数据:", response);
+            
+            if (response.success) {
+                let results = response.orders || [];
+                console.log("API返回订单数据:", results);
+                
+                // 如果搜索了订单号，需要在前端进行额外过滤以确保准确性
+                if (orderNumber && orderNumber.trim() !== '') {
+                    results = results.filter(order => 
+                        order.order_number && order.order_number.toLowerCase().includes(orderNumber.toLowerCase().trim())
+                    );
+                    console.log("订单号过滤后:", results);
+                }
+                
+                // 如果搜索了客户名，也需要确保过滤正确
+                if (customerName && customerName.trim() !== '') {
+                    results = results.filter(order => {
+                        const customerNameFromOrder = order.Customer && typeof order.Customer === 'object' 
+                            ? order.Customer.name 
+                            : (typeof order.Customer === 'string' ? order.Customer : '');
+                        return customerNameFromOrder && customerNameFromOrder.toLowerCase().includes(customerName.toLowerCase().trim());
+                    });
+                    console.log("客户名过滤后:", results);
+                }
+                
+                // 确保按类型筛选正确 - 增加日志调试
+                if (orderType && orderType.trim() !== '') {
+                    console.log("准备按类型过滤，当前类型:", orderType);
+                    console.log("过滤前订单类型:", results.map(order => order.order_type));
+                    
+                    results = results.filter(order => {
+                        const match = order.order_type === orderType.toUpperCase();
+                        console.log(`订单 ${order.order_number} 类型:${order.order_type}, 是否匹配:${match}`);
+                        return match;
+                    });
+                    
+                    console.log("类型过滤后:", results);
+                }
+                
+                setOrders(results);
+                
+                // 移除搜索结果数量的提示信息
             }
         } catch (error) {
-            console.error('Error loading orders:', error);
+            console.error('Error searching orders:', error);
+            // 不再显示错误提示对话框，而是在控制台记录错误
         } finally {
             setLoading(false);
         }
-    }, [orderType, isPaid, isCompleted, customerName]);
+    };
 
-    // 初始加载和筛选条件变化时重新加载数据
+    // 初始加载时获取所有订单
     useEffect(() => {
-        loadOrders();
-    }, [loadOrders]);
-
-    // 处理订单搜索结果
-    const handleOrderFound = (order) => {
-        // 将组件返回的格式化订单数据转换为页面表格期望的格式
-        const convertToTableFormat = (orders) => {
-            return orders.map(order => {
-                // 如果已经是原始API格式，直接返回
-                if (order.order_number && order.created_at) {
-                    return order;
+        const loadInitialOrders = async () => {
+            setLoading(true);
+            try {
+                const data = await fetchOrders();
+                if (data.success) {
+                    setOrders(data.orders || []);
                 }
-                
-                // 否则进行格式转换
-                return {
-                    id: order.id,
-                    order_number: order.orderNumber,
-                    // 修复日期格式问题：确保使用原始日期字符串或尝试转换日期对象为ISO格式
-                    created_at: typeof order.date === 'string' ? new Date(order.date).toISOString() : new Date().toISOString(),
-                    // 保持客户信息
-                    Customer: order.Customer || { name: "客户" },
-                    customer_id: order.customer_id,
-                    total_price: order.total || 0,
-                    order_type: order.type === 'quote' ? 'QUOTE' : 'SALES',
-                    is_paid: order.status === 'paid' ? 1 : 0,
-                    is_completed: order.is_completed || false
-                };
-            });
+            } catch (error) {
+                console.error('Error loading orders:', error);
+            } finally {
+                setLoading(false);
+            }
         };
-
-        if (Array.isArray(order)) {
-            // 无论找到几个订单，都只在当前页面更新订单列表
-            console.log("原始订单数据:", order);
-            const convertedOrders = convertToTableFormat(order);
-            console.log("转换后订单数据:", convertedOrders);
-            setOrders(convertedOrders);
-        } else if (order) {
-            // 如果是单个订单对象，也需要转换格式
-            setOrders(convertToTableFormat([order]));
-        }
-    };
-
-    // 处理未找到订单的情况
-    const handleNoOrderFound = () => {
-        // 可以选择显示提示或其他操作
-        alert("没有找到匹配的订单");
-    };
-
-    // 搜索按钮点击处理
-    const handleSearch = () => {
-        loadOrders();
-    };
+        
+        loadInitialOrders();
+    }, []);
 
     // 重置筛选条件
     const handleReset = () => {
@@ -122,8 +147,10 @@ const OrderPage = () => {
         setIsPaid(null);
         setIsCompleted(null);
         setCustomerName('');
-        // 重置后重新加载所有订单
-        loadOrders();
+        // 重置订单号搜索框
+        window.orderNumberSearchComponent?.resetOrderNumber();
+        // 重新加载所有订单
+        handleSearch();
     };
 
     // 根据类型获取总金额
@@ -170,37 +197,63 @@ const OrderPage = () => {
                 <Box sx={{ flex: 1, p: 3, backgroundColor: '#f5f5f5', overflowY: 'auto' }}>
                     {/* 筛选区域 */}
                     <Paper sx={{ p: 3, mb: 3, borderRadius: 2 }}>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
-                                {/* 替换订单号输入框为OrderNumberSearch组件 */}
-                                <OrderNumberSearch 
-                                    onOrderFound={handleOrderFound}
-                                    onNoOrderFound={handleNoOrderFound}
-                                />
+                        <Typography variant="h6" sx={{ mb: 2 }}>Search Orders</Typography>
+                        
+                        <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
+                            <Grid container spacing={2} alignItems="center">
+                                {/* 第一行：搜索字段，优化间距布局 */}
+                                <Grid item xs={12} md={4} sx={{ display: 'flex', alignItems: 'center' }}>
+                                    <OrderNumberSearch 
+                                        standalone={false}
+                                        ref={orderNumberSearchRef}
+                                        handleSearchAction={handleSearch}
+                                    />
+                                </Grid>
                                 
-                                {/* 订单类型选择 */}
-                                <FormControl sx={{ minWidth: '150px' }}>
-                                    <InputLabel>Order Type</InputLabel>
-                                    <Select
-                                        value={orderType}
-                                        onChange={(e) => setOrderType(e.target.value)}
-                                        label="Order Type"
-                                    >
-                                        <MenuItem value="">All</MenuItem>
-                                        <MenuItem value="QUOTE">Quote</MenuItem>
-                                        <MenuItem value="SALES">Sales</MenuItem>
-                                    </Select>
-                                </FormControl>
+                                <Grid item xs={12} md={4} sx={{ display: 'flex', alignItems: 'center' }}>
+                                    <TextField
+                                        fullWidth
+                                        size="small"
+                                        label="Customer Name"
+                                        value={customerName}
+                                        onChange={(e) => setCustomerName(e.target.value)}
+                                        onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                                    />
+                                </Grid>
                                 
-                                {/* 客户名搜索 */}
-                                <TextField
-                                    label="Customer Name"
-                                    value={customerName}
-                                    onChange={(e) => setCustomerName(e.target.value)}
-                                    sx={{ minWidth: '150px' }}
-                                />
-
-                                {/* 付款状态筛选 - 仅销售单可见 */}
+                                <Grid item xs={12} md={4} sx={{ display: 'flex', alignItems: 'center' }}>
+                                    <FormControl fullWidth size="small">
+                                        <InputLabel>Order Type</InputLabel>
+                                        <Select
+                                            value={orderType}
+                                            onChange={(e) => setOrderType(e.target.value)}
+                                            label="Order Type"
+                                        >
+                                            <MenuItem value="">All</MenuItem>
+                                            <MenuItem value="QUOTE">Quote</MenuItem>
+                                            <MenuItem value="SALES">Sales</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                </Grid>
+                            </Grid>
+                        </Paper>
+                        
+                        {/* 第二行：状态筛选和按钮 - 优化布局 */}
+                        <Box sx={{ 
+                            display: 'flex', 
+                            flexDirection: {xs: 'column', sm: 'row'}, 
+                            justifyContent: 'space-between',
+                            alignItems: {xs: 'flex-start', sm: 'center'},
+                            mt: 2
+                        }}>
+                            {/* 状态筛选 */}
+                            <Box sx={{ 
+                                display: 'flex', 
+                                flexDirection: 'row', 
+                                flexWrap: 'wrap',
+                                gap: 2,
+                                mb: {xs: 2, sm: 0}
+                            }}>
                                 {(orderType === 'SALES' || orderType === '') && (
                                     <FormControlLabel
                                         control={
@@ -218,7 +271,6 @@ const OrderPage = () => {
                                     />
                                 )}
 
-                                {/* 完成状态筛选 - 仅销售单可见 */}
                                 {(orderType === 'SALES' || orderType === '') && (
                                     <FormControlLabel
                                         control={
@@ -237,18 +289,41 @@ const OrderPage = () => {
                                 )}
                             </Box>
 
-                            {/* 操作按钮 */}
-                            <Box sx={{ display: 'flex', gap: 2 }}>
-                                <Button variant="contained" color="primary" onClick={handleSearch}>
-                                    Apply Filters
+                            {/* 操作按钮 - 优化布局和间距 */}
+                            <Box sx={{ 
+                                display: 'flex', 
+                                gap: 1.5,
+                                alignItems: 'center',
+                                justifyContent: {xs: 'flex-start', sm: 'flex-end'},
+                                width: {xs: '100%', sm: 'auto'}
+                            }}>
+                                <Button 
+                                    variant="contained" 
+                                    color="primary" 
+                                    onClick={handleSearch}
+                                    disabled={loading}
+                                    sx={{ minWidth: '100px' }}
+                                    startIcon={<SearchIcon />}
+                                >
+                                    {loading ? 'Searching...' : 'Search'}
                                 </Button>
-                                <Button variant="outlined" onClick={handleReset}>
+                                <Button 
+                                    variant="outlined" 
+                                    onClick={handleReset} 
+                                    disabled={loading}
+                                    sx={{ minWidth: '100px' }}
+                                    startIcon={<ClearIcon />}
+                                >
                                     Reset
                                 </Button>
+                                <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
                                 <Button 
                                     variant="contained" 
                                     color="secondary" 
                                     onClick={() => navigate('/create-order')}
+                                    disabled={loading}
+                                    sx={{ minWidth: '130px' }}
+                                    startIcon={<AddIcon />}
                                 >
                                     Create Order
                                 </Button>
@@ -301,7 +376,7 @@ const OrderPage = () => {
                                                     {order.Customer ? 
                                                         (typeof order.Customer === 'object' ? 
                                                             order.Customer.name : order.Customer) 
-                                                        : (order.customer_id || '未知')
+                                                        : (order.customer_id || 'Unknown')
                                                     }
                                                 </TableCell>
                                                 <TableCell>{getTotalAmount(order)}</TableCell>
@@ -322,7 +397,7 @@ const OrderPage = () => {
                                                     {order.User ? 
                                                         (typeof order.User === 'object' ? 
                                                             order.User.username : order.User) 
-                                                        : (order.user_id || '未知')
+                                                        : (order.user_id || 'Unknown')
                                                     }
                                                 </TableCell>
                                                 <TableCell>
