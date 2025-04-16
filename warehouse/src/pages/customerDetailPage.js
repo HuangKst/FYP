@@ -387,7 +387,12 @@ const CustomerDetailPage = () => {
           </Typography>
         </Paper>
 
-        <Box sx={{ flex: 1, p: 3, backgroundColor: '#f5f5f5', overflowY: 'auto' }}>
+        <Box sx={{ 
+          flex: 1, 
+          p: 3, 
+          backgroundColor: '#f5f5f5', 
+          overflow: 'hidden'
+        }}>
           {/* Customer info card component */}
           <CustomerInfoCard customer={customer} />
 
@@ -508,8 +513,8 @@ const CustomerDetailPage = () => {
           </Paper>
           
           {/* 订单列表 */}
-          <Paper sx={{ borderRadius: 2 }}>
-            <TableContainer>
+          <Paper sx={{ borderRadius: 2, maxHeight: 'calc(100vh - 480px)', overflow: 'auto' }}>
+            <TableContainer sx={{ maxHeight: 'calc(100vh - 530px)' }}>
               <Table>
                 <TableHead>
                   <TableRow>
