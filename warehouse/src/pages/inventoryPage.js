@@ -200,7 +200,7 @@ const InventoryPage = () => {
     const handleExport = async () => {
         setExportLoading(true);
         try {
-        const result = await exportInventoryToExcel();
+        const result = await exportInventoryToExcel(selectedMaterial, searchKeyword, lowStockOnly);
             if (result.success) {
                 showSnackbar('Export successful', 'success');
             } else {

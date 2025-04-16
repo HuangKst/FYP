@@ -64,11 +64,15 @@ export const deleteCustomer = async (customerId) => {
 };
 
 // 获取客户所有订单
-export const getCustomerOrders = async (customerId) => {
+export const getCustomerOrders = async (customerId, page = 1, pageSize = 10) => {
   try {
     // 使用查询参数获取特定客户的订单
     const response = await instance.get('/orders', {
-      params: { customer_id: customerId }
+      params: { 
+        customer_id: customerId,
+        page,
+        pageSize
+      }
     });
     return response.data;
   } catch (error) {

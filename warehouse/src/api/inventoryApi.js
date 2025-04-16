@@ -106,9 +106,14 @@ export const importInventoryFromExcel = async (file) => {
 };
 
 // 导出库存数据到 Excel
-export const exportInventoryToExcel = async () => {
+export const exportInventoryToExcel = async (material, specification, lowStock) => {
   try {
     const response = await instance.get(`/inventory/export`, {
+      params: {
+        material,
+        spec: specification,
+        lowStock: lowStock ? 'true' : undefined,
+      },
       responseType: 'blob',
     });
 

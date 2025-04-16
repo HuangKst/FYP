@@ -157,7 +157,16 @@ router.post('/import',async (req, res) => {
 // 导出库存到Excel
 router.get('/export', async (req, res) => {
   try {
+    const { material, spec, lowStock } = req.query;
+    const where = {};
+    
+    // 添加筛选条件
+    if (material) where.material = material;
+    if (spec) where.specification = { [Op.like]: `%${spec}%` };
+    if (lowStock === 'true') where.quantity = { [Op.lt]: 50 }; // 低于 50 触发预警
+    
     const data = await Inventory.findAll({
+      where,
       order: [['material', 'ASC'], ['specification', 'ASC']]
     });
 

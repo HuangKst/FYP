@@ -33,6 +33,7 @@ import {
 import { getCustomerById, getCustomerOrders } from '../api/customerApi';
 import { fetchOrders } from '../api/orderApi';
 import OrderNumberSearch from '../component/button/searchButtonByOrderID';
+import Pagination from '../component/Pagination';
 
 const CustomerDetailPage = () => {
   const { customerId } = useParams();
@@ -44,6 +45,16 @@ const CustomerDetailPage = () => {
   const [isPaid, setIsPaid] = useState(null);      // null, true, false
   const [isCompleted, setIsCompleted] = useState(null); // null, true, false
   const [filteredOrders, setFilteredOrders] = useState([]);
+  
+  // 分页状态
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [pagination, setPagination] = useState({
+    total: 0,
+    page: 1,
+    pageSize: 10,
+    totalPages: 1
+  });
   
   // 引用searchButton组件
   const orderNumberSearchRef = useRef(null);
@@ -60,7 +71,7 @@ const CustomerDetailPage = () => {
           
           // Method 1: Fetch orders through customer-specific API
           try {
-            const ordersResponse = await getCustomerOrders(customerId);
+            const ordersResponse = await getCustomerOrders(customerId, page, pageSize);
             if (ordersResponse.success) {
               // Format order data
               const formattedOrders = ordersResponse.orders.map(order => ({
@@ -81,7 +92,14 @@ const CustomerDetailPage = () => {
                 Customer: order.Customer
               }));
               setOrders(formattedOrders);
-              setFilteredOrders(formattedOrders);
+              
+              // 更新分页信息
+              updatePagination(formattedOrders);
+              
+              // 只显示第一页数据
+              const startIndex = (page - 1) * pageSize;
+              const paginatedOrders = formattedOrders.slice(startIndex, startIndex + pageSize);
+              setFilteredOrders(paginatedOrders);
             }
           } catch (orderError) {
             console.error('Failed to fetch orders, trying backup method', orderError);
@@ -110,7 +128,14 @@ const CustomerDetailPage = () => {
                   Customer: order.Customer
                 }));
                 setOrders(formattedOrders);
-                setFilteredOrders(formattedOrders);
+                
+                // 更新分页信息
+                updatePagination(formattedOrders);
+                
+                // 只显示第一页数据
+                const startIndex = (page - 1) * pageSize;
+                const paginatedOrders = formattedOrders.slice(startIndex, startIndex + pageSize);
+                setFilteredOrders(paginatedOrders);
               }
             } catch (backupError) {
               console.error('Backup method also failed, trying last method', backupError);
@@ -136,7 +161,14 @@ const CustomerDetailPage = () => {
                   Customer: order.Customer
                 }));
                 setOrders(formattedOrders);
-                setFilteredOrders(formattedOrders);
+                
+                // 更新分页信息
+                updatePagination(formattedOrders);
+                
+                // 只显示第一页数据
+                const startIndex = (page - 1) * pageSize;
+                const paginatedOrders = formattedOrders.slice(startIndex, startIndex + pageSize);
+                setFilteredOrders(paginatedOrders);
               }
             }
           }
@@ -163,7 +195,9 @@ const CustomerDetailPage = () => {
         isPaid,
         isCompleted,
         orderNumber,
-        customerId
+        customerId,
+        page,
+        pageSize
       });
       
       // 调用API搜索订单
@@ -173,7 +207,9 @@ const CustomerDetailPage = () => {
         isCompleted !== null ? isCompleted : undefined,
         null,  // customerName不需要
         customerId,  // 固定为当前客户
-        orderNumber
+        orderNumber,
+        page,  // 添加分页参数
+        pageSize
       );
       
       if (response.success) {
@@ -210,7 +246,16 @@ const CustomerDetailPage = () => {
           Customer: order.Customer
         }));
         
-        setFilteredOrders(formattedOrders);
+        // 保存完整结果用于分页
+        setOrders(formattedOrders);
+        
+        // 更新分页信息
+        setPage(1); // 重置到第一页
+        updatePagination(formattedOrders, 1, pageSize);
+        
+        // 只显示第一页数据
+        const paginatedOrders = formattedOrders.slice(0, pageSize);
+        setFilteredOrders(paginatedOrders);
       }
     } catch (error) {
       console.error('Error searching orders:', error);
@@ -224,10 +269,55 @@ const CustomerDetailPage = () => {
     setOrderType('');
     setIsPaid(null);
     setIsCompleted(null);
+    setPage(1); // 重置到第一页
     // 重置订单号搜索框
     window.orderNumberSearchComponent?.resetOrderNumber();
     // 恢复所有订单
     setFilteredOrders(orders);
+    // 重置分页
+    updatePagination(orders);
+  };
+
+  // 确保分页数据完整性
+  const ensurePaginationData = (paginationData) => {
+    return {
+      total: paginationData?.total || 0,
+      page: paginationData?.page || page,
+      pageSize: paginationData?.pageSize || pageSize,
+      totalPages: paginationData?.totalPages || 1
+    };
+  };
+
+  // 处理页码变化
+  const handlePageChange = (newPage) => {
+    setPage(newPage);
+    // 客户端分页 - 切片订单数据
+    const startIndex = (newPage - 1) * pageSize;
+    const paginatedOrders = orders.slice(startIndex, startIndex + pageSize);
+    setFilteredOrders(paginatedOrders);
+  };
+
+  // 处理每页数量变化
+  const handlePageSizeChange = (newPageSize) => {
+    setPageSize(newPageSize);
+    setPage(1); // 重置到第一页
+    // 客户端分页 - 切片订单数据
+    const paginatedOrders = orders.slice(0, newPageSize);
+    setFilteredOrders(paginatedOrders);
+    // 更新分页信息
+    updatePagination(orders, 1, newPageSize);
+  };
+
+  // 更新分页信息
+  const updatePagination = (data, currentPage = page, currentPageSize = pageSize) => {
+    const total = data.length;
+    const totalPages = Math.ceil(total / currentPageSize) || 1;
+    setPagination({
+      total,
+      page: currentPage,
+      pageSize: currentPageSize,
+      totalPages
+    });
   };
 
   const handleBack = () => {
@@ -482,6 +572,13 @@ const CustomerDetailPage = () => {
                 </TableBody>
               </Table>
             </TableContainer>
+            
+            {/* 分页组件 */}
+            <Pagination 
+              pagination={pagination}
+              onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
+            />
           </Paper>
         </Box>
       </Box>
