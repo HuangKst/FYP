@@ -37,6 +37,7 @@ import {
   deleteEmployeeLeave,
   getAllEmployees,
 } from '../api/employeeApi';
+import Pagination from '../component/Pagination';
 
 const EmployeeDetailPage = () => {
   const { id } = useParams();
@@ -46,6 +47,8 @@ const EmployeeDetailPage = () => {
   const [leaves, setLeaves] = useState([]);
   const [filteredOvertimes, setFilteredOvertimes] = useState([]);
   const [filteredLeaves, setFilteredLeaves] = useState([]);
+  const [displayedOvertimes, setDisplayedOvertimes] = useState([]);
+  const [displayedLeaves, setDisplayedLeaves] = useState([]);
   const [openOvertimeDialog, setOpenOvertimeDialog] = useState(false);
   const [openLeaveDialog, setOpenLeaveDialog] = useState(false);
   const [openEditOvertimeDialog, setOpenEditOvertimeDialog] = useState(false);
@@ -64,11 +67,27 @@ const EmployeeDetailPage = () => {
     endDate: ''
   });
 
+  // 分页状态
+  const [overtimePagination, setOvertimePagination] = useState({
+    total: 0,
+    page: 1,
+    pageSize: 5,
+    totalPages: 0
+  });
+  
+  const [leavePagination, setLeavePagination] = useState({
+    total: 0,
+    page: 1,
+    pageSize: 5,
+    totalPages: 0
+  });
+
   const [newOvertime, setNewOvertime] = useState({
     overtime_date: '',
     hours: '',
     reason: ''
   });
+  
   const [newLeave, setNewLeave] = useState({
     start_date: '',
     end_date: '',
@@ -77,6 +96,40 @@ const EmployeeDetailPage = () => {
 
   const [totalOvertimeHours, setTotalOvertimeHours] = useState(0);
   const [totalLeaveDays, setTotalLeaveDays] = useState(0);
+
+  // 更新加班分页信息
+  useEffect(() => {
+    const total = filteredOvertimes.length;
+    const totalPages = Math.ceil(total / overtimePagination.pageSize);
+    
+    setOvertimePagination(prev => ({
+      ...prev,
+      total,
+      totalPages,
+      page: prev.page > totalPages && totalPages > 0 ? totalPages : prev.page
+    }));
+    
+    const startIndex = (overtimePagination.page - 1) * overtimePagination.pageSize;
+    const endIndex = startIndex + overtimePagination.pageSize;
+    setDisplayedOvertimes(filteredOvertimes.slice(startIndex, endIndex));
+  }, [filteredOvertimes, overtimePagination.page, overtimePagination.pageSize]);
+
+  // 更新请假分页信息
+  useEffect(() => {
+    const total = filteredLeaves.length;
+    const totalPages = Math.ceil(total / leavePagination.pageSize);
+    
+    setLeavePagination(prev => ({
+      ...prev,
+      total,
+      totalPages,
+      page: prev.page > totalPages && totalPages > 0 ? totalPages : prev.page
+    }));
+    
+    const startIndex = (leavePagination.page - 1) * leavePagination.pageSize;
+    const endIndex = startIndex + leavePagination.pageSize;
+    setDisplayedLeaves(filteredLeaves.slice(startIndex, endIndex));
+  }, [filteredLeaves, leavePagination.page, leavePagination.pageSize]);
 
   // 格式化日期
   const formatDate = (dateString) => {
@@ -107,6 +160,7 @@ const EmployeeDetailPage = () => {
       });
     }
     setFilteredOvertimes(filtered);
+    setOvertimePagination(prev => ({ ...prev, page: 1 })); // 筛选后重置为第一页
   }, [overtimes, overtimeFilter]);
 
   // 应用请假记录筛选
@@ -122,17 +176,37 @@ const EmployeeDetailPage = () => {
       });
     }
     setFilteredLeaves(filtered);
+    setLeavePagination(prev => ({ ...prev, page: 1 })); // 筛选后重置为第一页
   }, [leaves, leaveFilter]);
 
   // 重置筛选
   const resetOvertimeFilter = () => {
     setOvertimeFilter({ startDate: '', endDate: '' });
     setFilteredOvertimes(overtimes);
+    setOvertimePagination(prev => ({ ...prev, page: 1 }));
   };
 
   const resetLeaveFilter = () => {
     setLeaveFilter({ startDate: '', endDate: '' });
     setFilteredLeaves(leaves);
+    setLeavePagination(prev => ({ ...prev, page: 1 }));
+  };
+
+  // 处理分页变化
+  const handleOvertimePageChange = (newPage) => {
+    setOvertimePagination(prev => ({ ...prev, page: newPage }));
+  };
+
+  const handleOvertimePageSizeChange = (newPageSize) => {
+    setOvertimePagination(prev => ({ ...prev, pageSize: newPageSize, page: 1 }));
+  };
+
+  const handleLeavePageChange = (newPage) => {
+    setLeavePagination(prev => ({ ...prev, page: newPage }));
+  };
+
+  const handleLeavePageSizeChange = (newPageSize) => {
+    setLeavePagination(prev => ({ ...prev, pageSize: newPageSize, page: 1 }));
   };
 
   // 获取数据
@@ -430,7 +504,7 @@ const EmployeeDetailPage = () => {
                     <ClearIcon />
                   </IconButton>
                   <Typography>
-                    总计: <strong>{totalOvertimeHours}</strong> 小时
+                    Total: <strong>{totalOvertimeHours}</strong> hours
                   </Typography>
                 </Stack>
               </Box>
@@ -447,7 +521,7 @@ const EmployeeDetailPage = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {filteredOvertimes.map((overtime) => (
+                    {displayedOvertimes.map((overtime) => (
                       <TableRow key={overtime.id}>
                         <TableCell>{formatDate(overtime.overtime_date)}</TableCell>
                         <TableCell>{overtime.hours}</TableCell>
@@ -473,7 +547,7 @@ const EmployeeDetailPage = () => {
                         </TableCell>
                       </TableRow>
                     ))}
-                    {filteredOvertimes.length === 0 && (
+                    {displayedOvertimes.length === 0 && (
                       <TableRow>
                         <TableCell colSpan={5} align="center">No overtime records</TableCell>
                       </TableRow>
@@ -481,6 +555,13 @@ const EmployeeDetailPage = () => {
                   </TableBody>
                 </Table>
               </TableContainer>
+              
+              <Pagination 
+                pagination={overtimePagination}
+                onPageChange={handleOvertimePageChange}
+                onPageSizeChange={handleOvertimePageSizeChange}
+                totalLabel="Total: {total} records"
+              />
             </Paper>
           </Grid>
 
@@ -517,7 +598,7 @@ const EmployeeDetailPage = () => {
                     <ClearIcon />
                   </IconButton>
                   <Typography>
-                    总计: <strong>{totalLeaveDays}</strong> 天
+                    Total: <strong>{totalLeaveDays}</strong> days
                   </Typography>
                 </Stack>
               </Box>
@@ -534,7 +615,7 @@ const EmployeeDetailPage = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {filteredLeaves.map((leave) => (
+                    {displayedLeaves.map((leave) => (
                       <TableRow key={leave.id}>
                         <TableCell>{formatDate(leave.start_date)}</TableCell>
                         <TableCell>{formatDate(leave.end_date)}</TableCell>
@@ -560,7 +641,7 @@ const EmployeeDetailPage = () => {
                         </TableCell>
                       </TableRow>
                     ))}
-                    {filteredLeaves.length === 0 && (
+                    {displayedLeaves.length === 0 && (
                       <TableRow>
                         <TableCell colSpan={5} align="center">No leave records</TableCell>
                       </TableRow>
@@ -568,6 +649,13 @@ const EmployeeDetailPage = () => {
                   </TableBody>
                 </Table>
               </TableContainer>
+              
+              <Pagination 
+                pagination={leavePagination}
+                onPageChange={handleLeavePageChange}
+                onPageSizeChange={handleLeavePageSizeChange}
+                totalLabel="Total: {total} records"
+              />
             </Paper>
           </Grid>
         </Grid>
