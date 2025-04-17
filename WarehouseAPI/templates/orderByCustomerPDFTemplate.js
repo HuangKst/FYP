@@ -6,15 +6,52 @@ import { formatDate } from '../utils/dateUtils.js';
  * @returns {String} - 返回HTML字符串
  */
 export function generateCustomerOrdersTemplate(data) {
-  // 记录收到的数据，便于调试
-  console.log('PDF模板收到数据:', JSON.stringify({
+  console.log('生成客户订单PDF模板，数据:', {
     customerName: data.customer?.name,
     ordersCount: data.orders?.length,
     totalUnpaid: data.totalUnpaid,
-    hasFilters: Object.keys(data.filters || {}).length > 0
-  }));
+    showUnpaid: data.showUnpaid
+  });
   
-  const { customer, orders, filters = {}, totalUnpaid = 0 } = data;
+  // 详细打印showUnpaid参数值
+  console.log(`showUnpaid参数值: ${data.showUnpaid}, 类型: ${typeof data.showUnpaid}`);
+  
+  // 检查订单数组是否完整
+  console.log(`PDF模板收到的订单数量: ${data.orders ? data.orders.length : 0}`);
+  console.log(`订单数组类型: ${Array.isArray(data.orders) ? 'Array' : typeof data.orders}`);
+  
+  // 详细打印每个订单的信息
+  if (data.orders && data.orders.length > 0) {
+    console.log('========== 开始处理订单详情 ==========');
+    data.orders.forEach((order, index) => {
+      console.log(`处理订单 ${index+1}/${data.orders.length}:`, {
+        id: order._id,
+        orderNumber: order.orderNumber,
+        orderDate: order.orderDate,
+        totalAmount: order.totalAmount,
+        status: order.status,
+        paymentStatus: order.paymentStatus,
+        itemsCount: order.items ? order.items.length : 0
+      });
+      
+      // 如果有订单项，打印第一个订单项信息
+      if (order.items && order.items.length > 0) {
+        console.log(`  - 订单${index+1}的第一个订单项:`, {
+          material: order.items[0].material,
+          specification: order.items[0].specification,
+          quantity: order.items[0].quantity,
+          unit_price: order.items[0].unit_price
+        });
+      } else {
+        console.log(`  - 订单${index+1}无订单项`);
+      }
+    });
+    console.log('========== 结束处理订单详情 ==========');
+  } else {
+    console.log('没有订单数据可显示或订单数组为空');
+  }
+  
+  const { customer, orders, filters = {}, totalUnpaid = 0, showUnpaid = true } = data;
   
   // 计算订单总数和金额
   const totalOrders = orders.length;
@@ -46,12 +83,12 @@ export function generateCustomerOrdersTemplate(data) {
         <tr>
           <th>订单总数</th>
           <th>总金额</th>
-          <th>未付款总额</th>
+          ${showUnpaid ? '<th>未付款总额</th>' : ''}
         </tr>
         <tr>
           <td>${totalOrders}</td>
           <td>¥${totalAmount.toFixed(2)}</td>
-          <td>¥${parseFloat(totalUnpaid).toFixed(2)}</td>
+          ${showUnpaid ? `<td>¥${parseFloat(totalUnpaid).toFixed(2)}</td>` : ''}
         </tr>
       </table>
     </div>
@@ -62,12 +99,15 @@ export function generateCustomerOrdersTemplate(data) {
   if (Object.keys(filters).length > 0) {
     const filterItems = [];
     
-    if (filters.startDate) {
-      filterItems.push(`<li><strong>开始日期:</strong> ${formatDate(new Date(filters.startDate))}</li>`);
+    if (filters.orderType) {
+      let typeText = filters.orderType.toUpperCase();
+      if (typeText === 'QUOTE') typeText = '报价单';
+      if (typeText === 'SALES') typeText = '销售订单';
+      filterItems.push(`<li><strong>订单类型:</strong> ${typeText}</li>`);
     }
     
-    if (filters.endDate) {
-      filterItems.push(`<li><strong>结束日期:</strong> ${formatDate(new Date(filters.endDate))}</li>`);
+    if (filters.orderNumber) {
+      filterItems.push(`<li><strong>订单号:</strong> ${filters.orderNumber}</li>`);
     }
     
     if (filters.status) {
@@ -108,16 +148,11 @@ export function generateCustomerOrdersTemplate(data) {
       orderDate = order.orderDate || 'N/A';
     }
     
-    const paymentStatus = order.paymentStatus === 'paid' ? '已付款' : 
-                          order.paymentStatus === 'partial' ? '部分付款' : '未付款';
+    const paymentStatus = order.paymentStatus === 'paid' ? '已付款' : '未付款';
     
     const orderStatus = 
       order.status === 'pending' ? '待处理' :
-      order.status === 'processing' ? '处理中' :
-      order.status === 'shipped' ? '已发货' :
-      order.status === 'delivered' ? '已送达' :
-      order.status === 'completed' ? '已完成' :
-      order.status === 'cancelled' ? '已取消' : order.status;
+      order.status === 'completed' ? '已完成' : order.status;
     
     // 添加到订单汇总表
     orderRows += `
@@ -131,6 +166,37 @@ export function generateCustomerOrdersTemplate(data) {
     `;
     
     // 为每个订单创建详细信息部分
+    const itemsTable = order.items && order.items.length > 0 ? `
+      <table class="items-table">
+        <thead>
+          <tr>
+            <th>物料</th>
+            <th>规格</th>
+            <th>数量</th>
+            <th>单位</th>
+            <th>单价</th>
+            <th>小计</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${order.items.map(item => `
+            <tr>
+              <td>${item.material || 'N/A'}</td>
+              <td>${item.specification || 'N/A'}</td>
+              <td>${item.quantity || 0}</td>
+              <td>${item.unit || 'PCS'}</td>
+              <td>¥${parseFloat(item.unit_price || 0).toFixed(2)}</td>
+              <td>¥${parseFloat(item.subtotal || 0).toFixed(2)}</td>
+            </tr>
+          `).join('')}
+          <tr>
+            <td colspan="5" style="text-align: right;"><strong>总计</strong></td>
+            <td><strong>¥${parseFloat(order.totalAmount || 0).toFixed(2)}</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    ` : '<p>此订单没有详细项目信息</p>';
+    
     orderDetails += `
       <div class="order-detail">
         <h3>订单 #${order.orderNumber || `ORD-${order._id?.substring(0, 8)}` || `ORD-${index+1}`}</h3>
@@ -145,36 +211,7 @@ export function generateCustomerOrdersTemplate(data) {
           </div>
           ${order.remark ? `<div class="info-row"><div class="info-item"><strong>备注:</strong> ${order.remark}</div></div>` : ''}
         </div>
-        ${order.items && order.items.length > 0 ? `
-          <table class="items-table">
-            <thead>
-              <tr>
-                <th>物料</th>
-                <th>规格</th>
-                <th>数量</th>
-                <th>单位</th>
-                <th>单价</th>
-                <th>小计</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${order.items.map(item => `
-                <tr>
-                  <td>${item.material || 'N/A'}</td>
-                  <td>${item.specification || 'N/A'}</td>
-                  <td>${item.quantity || 0}</td>
-                  <td>${item.unit || 'PCS'}</td>
-                  <td>¥${parseFloat(item.unit_price || 0).toFixed(2)}</td>
-                  <td>¥${parseFloat(item.subtotal || 0).toFixed(2)}</td>
-                </tr>
-              `).join('')}
-              <tr>
-                <td colspan="5" style="text-align: right;"><strong>总计</strong></td>
-                <td><strong>¥${parseFloat(order.totalAmount || 0).toFixed(2)}</strong></td>
-              </tr>
-            </tbody>
-          </table>
-        ` : '<p>此订单没有详细项目信息</p>'}
+        ${itemsTable}
       </div>
     `;
   });

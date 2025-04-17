@@ -22,7 +22,9 @@ import {
   Checkbox,
   FormControlLabel,
   Divider,
-  Chip
+  Chip,
+  Alert,
+  Snackbar
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SearchIcon from '@mui/icons-material/Search';
@@ -36,7 +38,7 @@ import { getCustomerById, getCustomerOrders, generateCustomerOrdersPDF } from '.
 import { fetchOrders } from '../api/orderApi';
 import OrderNumberSearch from '../component/button/searchButtonByOrderID';
 import Pagination from '../component/Pagination';
-import axiosInstance from '../api/axios';
+import instance from '../api/axios';  // 导入正确的axios实例
 import { BASE_URL } from '../config';
 
 const CustomerDetailPage = () => {
@@ -50,7 +52,10 @@ const CustomerDetailPage = () => {
   const [isCompleted, setIsCompleted] = useState(null); // null, true, false
   const [filteredOrders, setFilteredOrders] = useState([]);
   const [totalUnpaidAmount, setTotalUnpaidAmount] = useState(0);
+  const [totalCustomerDebt, setTotalCustomerDebt] = useState(0);
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [orderNumber, setOrderNumber] = useState('');
+  const [error, setError] = useState(null);
   
   // 分页状态
   const [page, setPage] = useState(1);
@@ -65,6 +70,24 @@ const CustomerDetailPage = () => {
   // 引用searchButton组件
   const orderNumberSearchRef = useRef(null);
 
+  // 获取客户详情
+  const fetchCustomerDetails = async (id) => {
+    try {
+      setLoading(true);
+      const response = await getCustomerById(id);
+      if (response.success) {
+        setCustomer(response.customer);
+      } else {
+        setError(response.msg || '获取客户详情失败');
+      }
+    } catch (err) {
+      console.error('Error fetching customer details:', err);
+      setError('获取客户详情时发生错误');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // 计算未付款总额
   const calculateTotalUnpaid = (ordersData) => {
     return ordersData
@@ -72,137 +95,145 @@ const CustomerDetailPage = () => {
       .reduce((sum, order) => sum + (order.total || 0), 0);
   };
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        // Get customer information
-        const customerResponse = await getCustomerById(customerId);
-        
-        if (customerResponse.success) {
-          setCustomer(customerResponse.customer);
-          
-          // Method 1: Fetch orders through customer-specific API
-          try {
-            const ordersResponse = await getCustomerOrders(customerId, page, pageSize);
-            if (ordersResponse.success) {
-              // Format order data
-              const formattedOrders = ordersResponse.orders.map(order => ({
-                id: order.id,
-                orderNumber: order.order_number,
-                date: new Date(order.created_at).toLocaleDateString(),
-                type: order.order_type === 'QUOTE' ? 'QUOTE' : 'SALES',
-                total: parseFloat(order.total_price || 0),
-                status: order.order_type === 'SALES' ? 
-                       (order.is_paid === 1 || order.is_paid === true ? 'paid' : 'pending') : 
-                       undefined,
-                is_paid: order.is_paid === 1 || order.is_paid === true,
-                is_completed: order.is_completed === 1 || order.is_completed === true,
-                items: order.order_items || [],
-                order_number: order.order_number,
-                order_type: order.order_type,
-                created_at: order.created_at,
-                Customer: order.Customer
-              }));
-              setOrders(formattedOrders);
-              
-              // 计算并设置未付款总额
-              setTotalUnpaidAmount(calculateTotalUnpaid(formattedOrders));
-              
-              // 更新分页信息
-              updatePagination(formattedOrders);
-              
-              // 只显示第一页数据
-              const startIndex = (page - 1) * pageSize;
-              const paginatedOrders = formattedOrders.slice(startIndex, startIndex + pageSize);
-              setFilteredOrders(paginatedOrders);
-            }
-          } catch (orderError) {
-            console.error('Failed to fetch orders, trying backup method', orderError);
-            
-            // Method 2: Backup method using customer_id parameter directly
-            try {
-              // Use fetchOrders with customer_id
-              const ordersResponse = await fetchOrders(null, null, null, null, customerId);
-              if (ordersResponse.success) {
-                // Same data transformation logic
-                const formattedOrders = ordersResponse.orders.map(order => ({
-                  id: order.id,
-                  orderNumber: order.order_number,
-                  date: new Date(order.created_at).toLocaleDateString(),
-                  type: order.order_type === 'QUOTE' ? 'QUOTE' : 'SALES',
-                  total: parseFloat(order.total_price || 0),
-                  status: order.order_type === 'SALES' ? 
-                         (order.is_paid === 1 || order.is_paid === true ? 'paid' : 'pending') : 
-                         undefined,
-                  is_paid: order.is_paid === 1 || order.is_paid === true,
-                  is_completed: order.is_completed === 1 || order.is_completed === true,
-                  items: order.order_items || [],
-                  order_number: order.order_number,
-                  order_type: order.order_type,
-                  created_at: order.created_at,
-                  Customer: order.Customer
-                }));
-                setOrders(formattedOrders);
-                
-                // 计算并设置未付款总额
-                setTotalUnpaidAmount(calculateTotalUnpaid(formattedOrders));
-                
-                // 更新分页信息
-                updatePagination(formattedOrders);
-                
-                // 只显示第一页数据
-                const startIndex = (page - 1) * pageSize;
-                const paginatedOrders = formattedOrders.slice(startIndex, startIndex + pageSize);
-                setFilteredOrders(paginatedOrders);
-              }
-            } catch (backupError) {
-              console.error('Backup method also failed, trying last method', backupError);
-              
-              // Method 3: Final attempt using customer name filter
-              const ordersResponse = await fetchOrders(null, null, null, customerResponse.customer.name);
-              if (ordersResponse.success) {
-                const formattedOrders = ordersResponse.orders.map(order => ({
-                  id: order.id,
-                  orderNumber: order.order_number,
-                  date: new Date(order.created_at).toLocaleDateString(),
-                  type: order.order_type === 'QUOTE' ? 'QUOTE' : 'SALES',
-                  total: parseFloat(order.total_price || 0),
-                  status: order.order_type === 'SALES' ? 
-                         (order.is_paid === 1 || order.is_paid === true ? 'paid' : 'pending') : 
-                         undefined,
-                  is_paid: order.is_paid === 1 || order.is_paid === true,
-                  is_completed: order.is_completed === 1 || order.is_completed === true,
-                  items: order.order_items || [],
-                  order_number: order.order_number,
-                  order_type: order.order_type,
-                  created_at: order.created_at,
-                  Customer: order.Customer
-                }));
-                setOrders(formattedOrders);
-                
-                // 计算并设置未付款总额
-                setTotalUnpaidAmount(calculateTotalUnpaid(formattedOrders));
-                
-                // 更新分页信息
-                updatePagination(formattedOrders);
-                
-                // 只显示第一页数据
-                const startIndex = (page - 1) * pageSize;
-                const paginatedOrders = formattedOrders.slice(startIndex, startIndex + pageSize);
-                setFilteredOrders(paginatedOrders);
-              }
-            }
-          }
+  // 单独获取客户的总欠款金额（不受筛选条件影响）
+  const fetchTotalCustomerDebt = async (customerId) => {
+    try {
+      console.log(`开始获取客户ID=${customerId}的总欠款金额...`);
+      
+      // 方式1：使用标准API获取所有未付款的销售订单
+      const response = await instance.get('/orders', {
+        params: { 
+          customerId: customerId,  // 确保参数名称正确
+          type: 'SALES',           // 只考虑销售订单
+          paid: 'false',           // 只考虑未付款订单
+          pageSize: 1000           // 足够大的数量获取所有订单
         }
-      } catch (error) {
-        console.error('Failed to fetch customer data:', error);
-      } finally {
-        setLoading(false);
+      });
+      
+      console.log('获取欠款订单响应:', response.data);
+      
+      if (response.data.success && response.data.orders) {
+        // 计算总欠款
+        const totalDebt = response.data.orders.reduce((sum, order) => 
+          sum + parseFloat(order.total_price || 0), 0);
+        
+        console.log(`客户总欠款: ¥${totalDebt}, 欠款订单数: ${response.data.orders.length}`);
+        
+        if (response.data.orders.length > 0) {
+          console.log('欠款订单详情:', response.data.orders.map(o => ({
+            id: o.id,
+            orderNumber: o.order_number,
+            amount: parseFloat(o.total_price || 0)
+          })));
+        }
+        
+        return totalDebt;
       }
-    };
+      
+      // 方式2：如果上面的方法失败，尝试另一种方式获取
+      console.log('尝试备用方式获取欠款信息...');
+      const backupResponse = await fetchOrders(
+        'SALES',   // 订单类型：销售订单
+        false,     // 是否已支付：未支付
+        null,      // 是否已完成：不限
+        null,      // 客户名称：不限
+        customerId,// 客户ID：当前客户
+        '',        // 订单号：不限
+        1,         // 页码：第1页
+        1000       // 每页大小：1000条
+      );
+      
+      if (backupResponse.success && backupResponse.orders) {
+        const totalDebtBackup = backupResponse.orders.reduce((sum, order) => 
+          sum + parseFloat(order.total_price || 0), 0);
+        
+        console.log(`备用方式获取的客户总欠款: ¥${totalDebtBackup}, 订单数: ${backupResponse.orders.length}`);
+        return totalDebtBackup;
+      }
+      
+      return 0;
+    } catch (error) {
+      console.error('获取客户总欠款失败:', error);
+      return 0;
+    }
+  };
 
-    fetchData();
+  // 加载订单数据
+  const loadOrdersData = async () => {
+    try {
+      setLoading(true);
+      // 获取当前订单号
+      const currentOrderNumber = window.orderNumberSearchComponent?.getOrderNumber() || '';
+      
+      const data = await fetchOrders(
+        orderType, 
+        isPaid, 
+        isCompleted, 
+        '', 
+        customerId, 
+        currentOrderNumber,
+        page,
+        pageSize
+      );
+      
+      if (data && data.success) {
+        // 格式化订单数据
+        const formattedOrders = (data.orders || []).map(order => ({
+          id: order.id,
+          orderNumber: order.order_number,
+          date: new Date(order.created_at).toLocaleDateString(),
+          type: order.order_type === 'QUOTE' ? 'QUOTE' : 'SALES',
+          total: parseFloat(order.total_price || 0),
+          status: order.order_type === 'SALES' ? 
+                 (order.is_paid === 1 || order.is_paid === true ? 'paid' : 'pending') : 
+                 undefined,
+          is_paid: order.is_paid === 1 || order.is_paid === true,
+          is_completed: order.is_completed === 1 || order.is_completed === true,
+          items: order.order_items || [],
+          order_number: order.order_number,
+          order_type: order.order_type,
+          created_at: order.created_at,
+          Customer: order.Customer
+        }));
+        
+        setOrders(formattedOrders);
+        setFilteredOrders(formattedOrders);
+        updatePagination({
+          total: data.pagination?.total || formattedOrders.length,
+          page: data.pagination?.page || page,
+          pageSize: data.pagination?.pageSize || pageSize,
+          totalPages: data.pagination?.totalPages || Math.ceil(formattedOrders.length / pageSize)
+        });
+        
+        // 计算当前筛选结果的未付款金额
+        setTotalUnpaidAmount(calculateTotalUnpaid(formattedOrders));
+      } else {
+        setError(data?.msg || '获取订单失败');
+        setOrders([]);
+        setFilteredOrders([]);
+      }
+    } catch (error) {
+      console.error('Error loading orders:', error);
+      setError('加载订单时发生错误');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!customerId) return;
+    
+    // 获取客户详情
+    fetchCustomerDetails(customerId);
+    
+    // 获取客户未付款总额（不受筛选条件影响）
+    fetchTotalCustomerDebt(customerId).then(amount => {
+      console.log(`设置客户总欠款为: ¥${amount}`);
+      setTotalCustomerDebt(amount);
+    });
+
+    // 加载订单数据
+    loadOrdersData();
   }, [customerId]);
 
   // 执行搜索，整合所有搜索条件
@@ -210,13 +241,13 @@ const CustomerDetailPage = () => {
     setLoading(true);
     try {
       // 获取订单号
-      const orderNumber = window.orderNumberSearchComponent?.getOrderNumber() || '';
+      const currentOrderNumber = window.orderNumberSearchComponent?.getOrderNumber() || '';
       
       console.log("搜索条件:", {
         orderType, 
         isPaid,
         isCompleted,
-        orderNumber,
+        orderNumber: currentOrderNumber,
         customerId,
         page,
         pageSize
@@ -229,7 +260,7 @@ const CustomerDetailPage = () => {
         isCompleted !== null ? isCompleted : undefined,
         null,  // customerName不需要
         customerId,  // 固定为当前客户
-        orderNumber,
+        currentOrderNumber,
         page,  // 添加分页参数
         pageSize
       );
@@ -238,9 +269,9 @@ const CustomerDetailPage = () => {
         let results = response.orders || [];
         
         // 如果搜索了订单号，需要在前端进行额外过滤以确保准确性
-        if (orderNumber && orderNumber.trim() !== '') {
+        if (currentOrderNumber && currentOrderNumber.trim() !== '') {
           results = results.filter(order => 
-            order.order_number && order.order_number.toLowerCase().includes(orderNumber.toLowerCase().trim())
+            order.order_number && order.order_number.toLowerCase().includes(currentOrderNumber.toLowerCase().trim())
           );
         }
         
@@ -271,19 +302,27 @@ const CustomerDetailPage = () => {
         // 保存完整结果用于分页
         setOrders(formattedOrders);
         
-        // 计算并设置未付款总额
+        // 计算当前筛选结果的未付款金额（注意：不更新总欠款，总欠款保持不变）
         setTotalUnpaidAmount(calculateTotalUnpaid(formattedOrders));
         
         // 更新分页信息
         setPage(1); // 重置到第一页
-        updatePagination(formattedOrders, 1, pageSize);
+        updatePagination({
+          total: response.pagination?.total || formattedOrders.length,
+          page: 1,
+          pageSize: pageSize,
+          totalPages: response.pagination?.totalPages || Math.ceil(formattedOrders.length / pageSize)
+        });
         
         // 只显示第一页数据
         const paginatedOrders = formattedOrders.slice(0, pageSize);
         setFilteredOrders(paginatedOrders);
+      } else {
+        setError(response.msg || '搜索订单失败');
       }
     } catch (error) {
       console.error('Error searching orders:', error);
+      setError('搜索订单时发生错误');
     } finally {
       setLoading(false);
     }
@@ -300,7 +339,12 @@ const CustomerDetailPage = () => {
     // 恢复所有订单
     setFilteredOrders(orders);
     // 重置分页
-    updatePagination(orders);
+    updatePagination({
+      total: orders.length,
+      page: 1,
+      pageSize: pageSize,
+      totalPages: Math.ceil(orders.length / pageSize)
+    });
   };
 
   // 确保分页数据完整性
@@ -330,69 +374,176 @@ const CustomerDetailPage = () => {
     const paginatedOrders = orders.slice(0, newPageSize);
     setFilteredOrders(paginatedOrders);
     // 更新分页信息
-    updatePagination(orders, 1, newPageSize);
-  };
-
-  // 更新分页信息
-  const updatePagination = (data, currentPage = page, currentPageSize = pageSize) => {
-    const total = data.length;
-    const totalPages = Math.ceil(total / currentPageSize) || 1;
-    setPagination({
-      total,
-      page: currentPage,
-      pageSize: currentPageSize,
-      totalPages
+    updatePagination({
+      total: orders.length,
+      page: 1,
+      pageSize: newPageSize,
+      totalPages: Math.ceil(orders.length / newPageSize)
     });
   };
 
+  // 更新分页信息
+  const updatePagination = (paginationData) => {
+    const safeData = ensurePaginationData(paginationData);
+    setPagination(safeData);
+  };
+
   // 导出PDF处理函数
-  const handleExportPdf = () => {
+  const handleExportPdf = (exportAllOrders = false) => {
     if (!customerId || exportingPdf) return;
     
     setExportingPdf(true);
     
-    try {
-      // 显示消息
-      const messageElement = document.createElement('div');
-      messageElement.className = 'pdf-export-message';
-      messageElement.style.cssText = `
-        position: fixed;
-        top: 80px;
-        right: 20px;
-        background-color: #2196f3;
-        color: white;
-        padding: 10px 20px;
-        border-radius: 4px;
-        z-index: 9999;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-      `;
-      messageElement.textContent = '正在准备PDF下载...';
-      document.body.appendChild(messageElement);
+    // 显示消息
+    const messageElement = document.createElement('div');
+    messageElement.className = 'pdf-export-message';
+    messageElement.style.cssText = `
+      position: fixed;
+      top: 80px;
+      right: 20px;
+      background-color: #2196f3;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 4px;
+      z-index: 9999;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    `;
+    messageElement.textContent = '正在准备PDF下载...';
+    document.body.appendChild(messageElement);
+    
+    // 获取当前订单号搜索值
+    const currentOrderNumber = window.orderNumberSearchComponent?.getOrderNumber() || '';
+    
+    // 判断是否有筛选条件
+    const hasFilter = orderType || currentOrderNumber || isCompleted !== null || isPaid !== null;
+    
+    // 检查筛选后的订单数量，如果有筛选条件且没有匹配订单，则设置exportAllOrders为true
+    const hasFilteredOrders = filteredOrders && filteredOrders.length > 0;
+    
+    // 记录当前状态
+    console.log('导出PDF前状态:', {
+      orderType,
+      currentOrderNumber,
+      isCompleted,
+      isPaid,
+      hasFilter,
+      hasFilteredOrders,
+      filteredOrdersCount: filteredOrders.length,
+      totalOrdersCount: orders.length,
+      totalCustomerDebt,
+      exportAllOrders
+    });
+    
+    // 修改：始终将includeAllOrders设置为true，无论是否有筛选条件
+    // 这样可以确保所有订单都包含在PDF中
+    const shouldIncludeAllOrders = true;
+    
+    // 构建导出选项 - 确保传递所有筛选条件
+    const exportOptions = {
+      // 基本信息
+      customerName: customer.name,
+      // 始终设置includeAllOrders为true
+      includeAllOrders: shouldIncludeAllOrders,
       
-      // 构建过滤参数
-      const filters = {
-        customerName: customer.name,
-        status: orderType ? orderType.toLowerCase() : undefined,
-        paymentStatus: isPaid === true ? 'paid' : isPaid === false ? 'unpaid' : undefined
-      };
+      // 传递筛选参数，用于PDF中显示筛选条件
+      orderType: orderType || undefined,
+      orderNumber: currentOrderNumber || undefined,
+      status: isCompleted === true ? 'completed' : 
+              isCompleted === false ? 'pending' : undefined,
+      paymentStatus: isPaid === true ? 'paid' : 
+                    isPaid === false ? 'unpaid' : undefined,
       
-      // 使用API函数生成并下载PDF
-      generateCustomerOrdersPDF(customerId, filters)
-        .then(result => {
-          if (result.success) {
-            // 更新为成功消息
-            messageElement.style.backgroundColor = '#4caf50';
-            messageElement.textContent = 'PDF下载已完成，请检查浏览器下载';
-          } else {
-            throw new Error(result.message || '下载失败');
-          }
-        })
-        .catch(error => {
-          console.error('导出PDF失败:', error);
-          messageElement.style.backgroundColor = '#f44336';
-          messageElement.textContent = `导出PDF失败: ${error.message || '未知错误'}`;
-        })
-        .finally(() => {
+      // 使用客户总欠款金额，不管当前筛选条件如何
+      unpaidAmount: totalCustomerDebt,
+      // 显示设置 - 始终显示欠款金额，因为这是客户的总欠款
+      showUnpaid: true
+    };
+    
+    // 记录导出信息
+    console.log('导出PDF - 详细参数:', { 
+      customerId,
+      exportOptions,
+      shouldIncludeAllOrders,
+      hasFilter,
+      filteredOrdersCount: filteredOrders.length,
+      allOrdersCount: orders.length,
+      totalCustomerDebt
+    });
+    
+    // 调用API导出PDF
+    generateCustomerOrdersPDF(customerId, exportOptions)
+      .then(result => {
+        if (result.success) {
+          // 更新为成功消息
+          messageElement.style.backgroundColor = '#4caf50';
+          messageElement.textContent = 'PDF下载已完成，请检查浏览器下载';
+        } else if (result.suggestExportAll) {
+          // 如果建议导出所有订单
+          messageElement.style.backgroundColor = '#ff9800';
+          messageElement.textContent = `当前筛选条件下没有订单。客户共有 ${result.allOrdersCount} 个订单，是否导出全部？`;
+          
+          // 添加确认和取消按钮
+          const buttonContainer = document.createElement('div');
+          buttonContainer.style.cssText = `
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 10px;
+            gap: 10px;
+          `;
+          
+          const confirmButton = document.createElement('button');
+          confirmButton.textContent = '导出所有订单';
+          confirmButton.style.cssText = `
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+          `;
+          
+          const cancelButton = document.createElement('button');
+          cancelButton.textContent = '取消';
+          cancelButton.style.cssText = `
+            background-color: #f44336;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+          `;
+          
+          // 添加点击事件
+          confirmButton.onclick = () => {
+            document.body.removeChild(messageElement);
+            setExportingPdf(false);
+            // 导出所有订单
+            handleExportPdf(true);
+          };
+          
+          cancelButton.onclick = () => {
+            document.body.removeChild(messageElement);
+            setExportingPdf(false);
+          };
+          
+          buttonContainer.appendChild(confirmButton);
+          buttonContainer.appendChild(cancelButton);
+          messageElement.appendChild(buttonContainer);
+          
+          // 不自动关闭消息
+          return;
+        } else {
+          throw new Error(result.message || '导出失败');
+        }
+      })
+      .catch(error => {
+        console.error('导出PDF失败:', error);
+        messageElement.style.backgroundColor = '#f44336';
+        messageElement.textContent = `导出PDF失败: ${error.message || '未知错误'}`;
+      })
+      .finally(() => {
+        // 如果不是建议导出所有订单的情况，才自动关闭消息
+        if (!messageElement.contains(document.querySelector('button'))) {
           setExportingPdf(false);
           
           // 几秒后移除消息
@@ -401,12 +552,8 @@ const CustomerDetailPage = () => {
               document.body.removeChild(messageElement);
             }
           }, 5000);
-        });
-    } catch (error) {
-      console.error('启动PDF导出失败:', error);
-      setExportingPdf(false);
-      alert(`导出PDF失败: ${error.message || '未知错误'}`);
-    }
+        }
+      });
   };
 
   const handleBack = () => {
@@ -416,6 +563,11 @@ const CustomerDetailPage = () => {
   const handleViewOrderDetail = (orderId) => {
     // Navigate to order details page, add source parameters
     navigate(`/order/${orderId}?from=customer&customerId=${customerId}`);
+  };
+  
+  // 处理错误消息关闭
+  const handleCloseError = () => {
+    setError(null);
   };
 
   if (loading && !customer) {
@@ -440,6 +592,18 @@ const CustomerDetailPage = () => {
   return (
     <Container maxWidth={false} sx={{ height: 'calc(100vh - 64px)', p: 0, mt: '64px' }}>
       <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        {/* 错误消息提示 */}
+        <Snackbar 
+          open={!!error} 
+          autoHideDuration={6000} 
+          onClose={handleCloseError}
+          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        >
+          <Alert onClose={handleCloseError} severity="error" sx={{ width: '100%' }}>
+            {error}
+          </Alert>
+        </Snackbar>
+        
         <Paper 
           elevation={0} 
           sx={{ 
@@ -499,7 +663,7 @@ const CustomerDetailPage = () => {
               {/* 显示总欠款 */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <Chip 
-                  label={`未付款总额: ¥${totalUnpaidAmount.toLocaleString()}`}
+                  label={`未付款总额: ¥${totalCustomerDebt.toLocaleString()}`}
                   color="error"
                   variant="outlined"
                   sx={{ fontWeight: 'bold' }}
@@ -508,7 +672,7 @@ const CustomerDetailPage = () => {
                   variant="contained"
                   color="primary"
                   startIcon={<PictureAsPdfIcon />}
-                  onClick={handleExportPdf}
+                  onClick={() => handleExportPdf()}
                   disabled={exportingPdf || orders.length === 0}
                 >
                   {exportingPdf ? '导出中...' : '导出PDF'}

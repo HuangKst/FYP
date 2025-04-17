@@ -94,12 +94,20 @@ export async function generatePDF(data, type) {
       scale: 0.98
     });
     
+    // 验证PDF是否有效
+    if (!pdf || pdf.length === 0) {
+      throw new Error('生成的PDF为空或无效');
+    }
+    
     // 9. Close browser
     console.log('PDF generation successful, closing browser...');
     await browser.close();
     browser = null;
     
     console.log('PDF generation completed, buffer size:', pdf.length);
+    // 记录PDF的前20个字节，用于调试
+    console.log('PDF header bytes:', pdf.slice(0, 20).toString('hex'));
+    
     return pdf;
   } catch (error) {
     console.error('PDF generation failed:', error);
@@ -123,10 +131,24 @@ export async function generatePDF(data, type) {
  * @param {string} filename - Download filename
  */
 export function sendPDFResponse(res, pdfBuffer, filename) {
-  // Set response headers and send PDF
+  // 确保Buffer有效
+  if (!pdfBuffer || !Buffer.isBuffer(pdfBuffer) || pdfBuffer.length === 0) {
+    console.error('无效的PDF缓冲区', pdfBuffer);
+    res.status(500).json({ success: false, msg: '生成的PDF无效' });
+    return;
+  }
+  
+  console.log(`发送PDF响应: ${filename}, 大小: ${pdfBuffer.length} 字节`);
+  
+  // 设置响应头和发送PDF
   res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
   res.setHeader('Content-Length', pdfBuffer.length);
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  
+  // 发送PDF数据
   res.end(pdfBuffer, 'binary');
 }
 
@@ -149,34 +171,43 @@ export function handlePDFError(res, error) {
  * Generate customer orders PDF and send response
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
+ * @param {Object} pdfData - PDF data object containing customer and orders info
  */
-export async function generateCustomerOrdersPDF(req, res) {
+export async function generateCustomerOrdersPDF(req, res, pdfData) {
   try {
-    const data = req.body;
+    const data = pdfData || req.body;
     
     if (!data.customer || !data.orders) {
       return res.status(400).json({ error: '缺少必要数据：customer和orders字段是必需的' });
     }
     
+    // 从查询参数获取未付款金额和显示设置
+    const showUnpaid = req.query.showUnpaid === 'true';
+    const unpaidAmount = req.query.unpaidAmount ? parseFloat(req.query.unpaidAmount) : 0;
+    
+    console.log(`PDF生成参数: showUnpaid=${showUnpaid}, unpaidAmount=${unpaidAmount}`);
+    
+    // 如果前端传递了unpaidAmount，使用它替换data中的值
+    if (req.query.unpaidAmount) {
+      data.totalUnpaid = unpaidAmount;
+    }
+    
+    // 确保showUnpaid参数被正确应用
+    data.showUnpaid = showUnpaid;
+    
+    console.log('开始生成客户订单PDF...');
     const pdfBuffer = await generatePDF(data, 'customerOrders');
+    console.log('PDF生成完成，大小:', pdfBuffer.length);
     
     // Set filename: Customer_[CustomerName]_Orders_[Date].pdf
     const customerName = data.customer.name || 'Unknown';
     const date = new Date().toISOString().split('T')[0];
     const filename = `Customer_${customerName.replace(/\s+/g, '_')}_Orders_${date}.pdf`;
     
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.send(pdfBuffer);
+    // 使用封装的响应函数
+    sendPDFResponse(res, pdfBuffer, filename);
   } catch (error) {
     console.error('生成客户订单PDF时出错:', error);
     res.status(500).json({ error: '生成PDF时发生错误', details: error.message });
   }
-}
-
-module.exports = {
-  generatePDF,
-  sendPDFResponse,
-  handlePDFError,
-  generateCustomerOrdersPDF
-}; 
+} 
