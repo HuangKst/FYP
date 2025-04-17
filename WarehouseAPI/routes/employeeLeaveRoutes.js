@@ -1,9 +1,8 @@
 import express from 'express';
 import EmployeeLeave from '../Models/employeeLeaveModel.js';
 import Employee from '../Models/employeeModel.js';
-import puppeteer from 'puppeteer';
-import { generateLeaveTemplate } from '../templates/employeeLeaveimePDFTemplate.js';
 import { Op } from 'sequelize';
+import { generatePDF, sendPDFResponse, handlePDFError } from '../utils/pdfGenerator.js';
 
 const router = express.Router();
 
@@ -113,115 +112,14 @@ router.get('/employee/:id/pdf', async (req, res) => {
       generatedDate: new Date().toLocaleDateString()
     };
     
-    // 生成PDF
-    const pdfBuffer = await generateEmployeePDF(templateData, 'leave');
+    // 使用通用PDF生成工具生成PDF
+    const pdfBuffer = await generatePDF(templateData, 'leave');
     
-    // 设置响应头并发送PDF
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="employee-${id}-leave.pdf"`);
-    res.setHeader('Content-Length', pdfBuffer.length);
-    res.end(pdfBuffer, 'binary');
+    // 发送PDF响应
+    sendPDFResponse(res, pdfBuffer, `employee-${id}-leave.pdf`);
   } catch (err) {
-    console.error('Error generating leave PDF:', err);
-    res.status(500).json({ success: false, msg: 'Failed to generate PDF', error: err.message });
+    handlePDFError(res, err);
   }
 });
-
-/**
- * 生成员工记录PDF的函数
- * @param {Object} data - 数据对象
- * @param {string} type - 类型 ('overtime'/'leave')
- * @returns {Promise<Buffer>} - 返回PDF缓冲区
- */
-async function generateEmployeePDF(data, type) {
-  let browser = null;
-  try {
-    console.log('开始生成PDF...');
-    
-    // 根据类型获取不同的模板
-    let templateHtml;
-    if (type === 'leave') {
-      templateHtml = generateLeaveTemplate(data);
-    } else {
-      throw new Error('Unsupported template type');
-    }
-    
-    console.log('HTML模板已创建');
-    
-    // 配置Puppeteer选项
-    const puppeteerOptions = {
-      headless: 'new',
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--disable-gpu',
-        '--font-render-hinting=none'
-      ],
-      timeout: 60000
-    };
-    
-    console.log('正在启动Puppeteer浏览器...');
-    browser = await puppeteer.launch(puppeteerOptions);
-    
-    console.log('正在创建新页面...');
-    const page = await browser.newPage();
-    
-    // 设置视口大小为A4
-    await page.setViewport({
-      width: 794,
-      height: 1123,
-      deviceScaleFactor: 1
-    });
-    
-    // 设置页面内容
-    console.log('正在设置页面内容...');
-    await page.setContent(templateHtml, { 
-      waitUntil: ['load', 'domcontentloaded', 'networkidle0'],
-      timeout: 30000
-    });
-    
-    // 确保所有字体已加载
-    await page.evaluate(() => document.fonts.ready);
-    
-    // 设置打印媒体类型
-    await page.emulateMediaType('print');
-    
-    // 生成PDF
-    console.log('正在生成PDF...');
-    const pdf = await page.pdf({
-      format: 'a4',
-      printBackground: true,
-      margin: {
-        top: '15mm',
-        right: '15mm',
-        bottom: '15mm',
-        left: '15mm'
-      },
-      preferCSSPageSize: false,
-      displayHeaderFooter: false,
-      scale: 0.98
-    });
-    
-    // 关闭浏览器
-    console.log('PDF生成成功，正在关闭浏览器...');
-    await browser.close();
-    browser = null;
-    
-    console.log('PDF生成完毕，返回PDF缓冲区大小:', pdf.length);
-    return pdf;
-  } catch (error) {
-    console.error('PDF生成失败:', error);
-    if (browser) {
-      try {
-        await browser.close();
-      } catch (closeError) {
-        console.error('关闭浏览器失败:', closeError);
-      }
-    }
-    throw error;
-  }
-}
 
 export default router;

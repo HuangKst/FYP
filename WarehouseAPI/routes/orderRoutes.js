@@ -6,12 +6,10 @@ import User from '../Models/userModel.js';
 import Inventory from '../Models/inventoryModel.js';
 import { Op } from 'sequelize';
 import { sequelize } from '../db/index.js';
-import puppeteer from 'puppeteer';
-import handlebars from 'handlebars';
-import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { generateOrderTemplate } from '../templates/orderPDFTemplate.js';
+import { generatePDF, sendPDFResponse, handlePDFError } from '../utils/pdfGenerator.js';
 
 // ES模块中获取__dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -480,17 +478,13 @@ router.get('/:id/pdf', async (req, res) => {
       generated_date: new Date().toLocaleDateString()
     };
 
-    // 生成PDF
-    const pdfBuffer = await generateOrderPDF(templateData);
-
-    // 设置响应头并发送PDF - 确保正确的MIME类型和编码
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="order-${order.order_number}.pdf"`);
-    res.setHeader('Content-Length', pdfBuffer.length);
-    res.end(pdfBuffer, 'binary');
+    // 使用通用PDF生成工具生成PDF
+    const pdfBuffer = await generatePDF(templateData, 'order');
+    
+    // 发送PDF响应
+    sendPDFResponse(res, pdfBuffer, `order-${order.order_number}.pdf`);
   } catch (err) {
-    console.error('Error generating PDF:', err);
-    res.status(500).json({ success: false, msg: 'Failed to generate PDF', error: err.message });
+    handlePDFError(res, err);
   }
 });
 
@@ -500,89 +494,8 @@ router.get('/:id/pdf', async (req, res) => {
  * @returns {Promise<Buffer>} - 返回PDF缓冲区
  */
 async function generateOrderPDF(orderData) {
-  let browser = null;
-  try {
-    console.log('开始生成PDF...');
-
-    // 从模板函数获取HTML
-    const templateHtml = generateOrderTemplate(orderData);
-    console.log('HTML模板已创建');
-
-    // 更改Puppeteer配置 - 使用最稳定的设置
-    const puppeteerOptions = {
-      headless: 'new',
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--disable-gpu',
-        '--font-render-hinting=none'
-      ],
-      timeout: 60000 // 增加超时时间
-    };
-    
-    console.log('正在启动Puppeteer浏览器...');
-    browser = await puppeteer.launch(puppeteerOptions);
-    
-    console.log('正在创建新页面...');
-    const page = await browser.newPage();
-    
-    // 设置视口大小为A4
-    await page.setViewport({
-      width: 794, // A4宽度对应像素(72dpi)
-      height: 1123, // A4高度对应像素
-      deviceScaleFactor: 1
-    });
-    
-    // 设置页面内容 - 使用更可靠的等待策略
-    console.log('正在设置页面内容...');
-    await page.setContent(templateHtml, { 
-      waitUntil: ['load', 'domcontentloaded', 'networkidle0'],
-      timeout: 30000
-    });
-    
-    // 确保所有字体已加载
-    await page.evaluate(() => document.fonts.ready);
-    
-    // 设置打印媒体类型
-    await page.emulateMediaType('print');
-    
-    // 生成PDF - 使用标准PDF设置
-    console.log('正在生成PDF...');
-    const pdf = await page.pdf({
-      format: 'a4',
-      printBackground: true,
-      margin: {
-        top: '15mm',
-        right: '15mm',
-        bottom: '15mm',
-        left: '15mm'
-      },
-      preferCSSPageSize: false,
-      displayHeaderFooter: false,
-      scale: 0.98
-    });
-
-    // 关闭浏览器
-    console.log('PDF生成成功，正在关闭浏览器...');
-    await browser.close();
-    browser = null;
-    
-    console.log('PDF生成完毕，返回PDF缓冲区大小:', pdf.length);
-    return pdf;
-  } catch (error) {
-    console.error('PDF生成失败:', error);
-    // 确保浏览器实例被关闭
-    if (browser) {
-      try {
-        await browser.close();
-      } catch (closeError) {
-        console.error('关闭浏览器失败:', closeError);
-      }
-    }
-    throw error;
-  }
+  // 使用新的工具函数替换旧的实现
+  return await generatePDF(orderData, 'order');
 }
 
 export default router;
