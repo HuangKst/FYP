@@ -21,19 +21,23 @@ import {
   TableCell,
   Checkbox,
   FormControlLabel,
-  Divider
+  Divider,
+  Chip
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import { 
   CustomerInfoCard, 
   OrderStatusChip 
 } from '../component/customer';
-import { getCustomerById, getCustomerOrders } from '../api/customerApi';
+import { getCustomerById, getCustomerOrders, generateCustomerOrdersPDF } from '../api/customerApi';
 import { fetchOrders } from '../api/orderApi';
 import OrderNumberSearch from '../component/button/searchButtonByOrderID';
 import Pagination from '../component/Pagination';
+import axiosInstance from '../api/axios';
+import { BASE_URL } from '../config';
 
 const CustomerDetailPage = () => {
   const { customerId } = useParams();
@@ -45,6 +49,8 @@ const CustomerDetailPage = () => {
   const [isPaid, setIsPaid] = useState(null);      // null, true, false
   const [isCompleted, setIsCompleted] = useState(null); // null, true, false
   const [filteredOrders, setFilteredOrders] = useState([]);
+  const [totalUnpaidAmount, setTotalUnpaidAmount] = useState(0);
+  const [exportingPdf, setExportingPdf] = useState(false);
   
   // 分页状态
   const [page, setPage] = useState(1);
@@ -58,6 +64,13 @@ const CustomerDetailPage = () => {
   
   // 引用searchButton组件
   const orderNumberSearchRef = useRef(null);
+
+  // 计算未付款总额
+  const calculateTotalUnpaid = (ordersData) => {
+    return ordersData
+      .filter(order => order.type === 'SALES' && !order.is_paid)
+      .reduce((sum, order) => sum + (order.total || 0), 0);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -92,6 +105,9 @@ const CustomerDetailPage = () => {
                 Customer: order.Customer
               }));
               setOrders(formattedOrders);
+              
+              // 计算并设置未付款总额
+              setTotalUnpaidAmount(calculateTotalUnpaid(formattedOrders));
               
               // 更新分页信息
               updatePagination(formattedOrders);
@@ -129,6 +145,9 @@ const CustomerDetailPage = () => {
                 }));
                 setOrders(formattedOrders);
                 
+                // 计算并设置未付款总额
+                setTotalUnpaidAmount(calculateTotalUnpaid(formattedOrders));
+                
                 // 更新分页信息
                 updatePagination(formattedOrders);
                 
@@ -161,6 +180,9 @@ const CustomerDetailPage = () => {
                   Customer: order.Customer
                 }));
                 setOrders(formattedOrders);
+                
+                // 计算并设置未付款总额
+                setTotalUnpaidAmount(calculateTotalUnpaid(formattedOrders));
                 
                 // 更新分页信息
                 updatePagination(formattedOrders);
@@ -249,6 +271,9 @@ const CustomerDetailPage = () => {
         // 保存完整结果用于分页
         setOrders(formattedOrders);
         
+        // 计算并设置未付款总额
+        setTotalUnpaidAmount(calculateTotalUnpaid(formattedOrders));
+        
         // 更新分页信息
         setPage(1); // 重置到第一页
         updatePagination(formattedOrders, 1, pageSize);
@@ -318,6 +343,70 @@ const CustomerDetailPage = () => {
       pageSize: currentPageSize,
       totalPages
     });
+  };
+
+  // 导出PDF处理函数
+  const handleExportPdf = () => {
+    if (!customerId || exportingPdf) return;
+    
+    setExportingPdf(true);
+    
+    try {
+      // 显示消息
+      const messageElement = document.createElement('div');
+      messageElement.className = 'pdf-export-message';
+      messageElement.style.cssText = `
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        background-color: #2196f3;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 4px;
+        z-index: 9999;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      `;
+      messageElement.textContent = '正在准备PDF下载...';
+      document.body.appendChild(messageElement);
+      
+      // 构建过滤参数
+      const filters = {
+        customerName: customer.name,
+        status: orderType ? orderType.toLowerCase() : undefined,
+        paymentStatus: isPaid === true ? 'paid' : isPaid === false ? 'unpaid' : undefined
+      };
+      
+      // 使用API函数生成并下载PDF
+      generateCustomerOrdersPDF(customerId, filters)
+        .then(result => {
+          if (result.success) {
+            // 更新为成功消息
+            messageElement.style.backgroundColor = '#4caf50';
+            messageElement.textContent = 'PDF下载已完成，请检查浏览器下载';
+          } else {
+            throw new Error(result.message || '下载失败');
+          }
+        })
+        .catch(error => {
+          console.error('导出PDF失败:', error);
+          messageElement.style.backgroundColor = '#f44336';
+          messageElement.textContent = `导出PDF失败: ${error.message || '未知错误'}`;
+        })
+        .finally(() => {
+          setExportingPdf(false);
+          
+          // 几秒后移除消息
+          setTimeout(() => {
+            if (document.body.contains(messageElement)) {
+              document.body.removeChild(messageElement);
+            }
+          }, 5000);
+        });
+    } catch (error) {
+      console.error('启动PDF导出失败:', error);
+      setExportingPdf(false);
+      alert(`导出PDF失败: ${error.message || '未知错误'}`);
+    }
   };
 
   const handleBack = () => {
@@ -398,7 +487,34 @@ const CustomerDetailPage = () => {
 
           {/* 订单搜索区域 - 使用与orderPage相同的组件和布局 */}
           <Paper sx={{ p: 3, mb: 3, borderRadius: 2 }}>
-            <Typography variant="h6" sx={{ mb: 2 }}>Order History</Typography>
+            <Box sx={{ 
+              display: 'flex', 
+              flexDirection: 'row', 
+              justifyContent: 'space-between', 
+              alignItems: 'center',
+              mb: 2
+            }}>
+              <Typography variant="h6">Order History</Typography>
+              
+              {/* 显示总欠款 */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Chip 
+                  label={`未付款总额: ¥${totalUnpaidAmount.toLocaleString()}`}
+                  color="error"
+                  variant="outlined"
+                  sx={{ fontWeight: 'bold' }}
+                />
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={<PictureAsPdfIcon />}
+                  onClick={handleExportPdf}
+                  disabled={exportingPdf || orders.length === 0}
+                >
+                  {exportingPdf ? '导出中...' : '导出PDF'}
+                </Button>
+              </Box>
+            </Box>
             
             {/* 搜索表单 */}
             <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>

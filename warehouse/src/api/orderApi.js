@@ -44,11 +44,13 @@ export const fetchOrderDetail = async (orderId) => {
 };
 
 // 更新订单状态
-export const updateOrderStatus = async (orderId, isPaid, isCompleted, remark) => {
+export const updateOrderStatus = async (orderId, statusData) => {
   try {
+    // 确保数据格式正确
+    const { is_paid, is_completed, remark } = statusData;
     const response = await instance.put(`/orders/${orderId}`, {
-      is_paid: isPaid,
-      is_completed: isCompleted,
+      is_paid,
+      is_completed,
       remark
     });
     return response.data;

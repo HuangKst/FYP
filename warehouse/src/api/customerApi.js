@@ -80,3 +80,38 @@ export const getCustomerOrders = async (customerId, page = 1, pageSize = 10) => 
   }
 };
 
+/**
+ * 生成客户订单PDF报告
+ * @param {string} customerId - 客户ID
+ * @param {Object} filters - 过滤条件
+ * @returns {Promise<Object>} - 操作结果
+ */
+export const generateCustomerOrdersPDF = async (customerId, filters = {}) => {
+  try {
+    const response = await instance.get(`/customers/${customerId}/orders/pdf`, {
+      params: filters,
+      responseType: 'blob'
+    });
+    
+    // 创建下载链接
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    
+    // 设置文件名
+    const customerName = filters.customerName || 'Customer';
+    const date = new Date().toISOString().split('T')[0];
+    const filename = `${customerName}_Orders_${date}.pdf`;
+    
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+    
+    return { success: true };
+  } catch (error) {
+    return handleError(error, '生成客户订单PDF失败');
+  }
+};
+

@@ -2,12 +2,13 @@ import puppeteer from 'puppeteer';
 import { generateOvertimeTemplate } from '../templates/employeeOvertimePDFTemplate.js';
 import { generateLeaveTemplate } from '../templates/employeeLeaveimePDFTemplate.js';
 import { generateOrderTemplate } from '../templates/orderPDFTemplate.js';
+import { generateCustomerOrdersTemplate } from '../templates/orderByCustomerPDFTemplate.js';
 
 /**
  * Universal PDF Generation Tool - Convert data objects to PDF documents
  * 
  * @param {Object} data - Data object to be passed to the template function
- * @param {string} type - Document type ('overtime', 'leave', 'order')
+ * @param {string} type - Document type ('overtime', 'leave', 'order', 'customerOrders')
  * @returns {Promise<Buffer>} - Returns PDF file buffer
  */
 export async function generatePDF(data, type) {
@@ -26,6 +27,9 @@ export async function generatePDF(data, type) {
         break;
       case 'order':
         templateHtml = generateOrderTemplate(data);
+        break;
+      case 'customerOrders':
+        templateHtml = generateCustomerOrdersTemplate(data);
         break;
       default:
         throw new Error(`Unsupported template type: ${type}`);
@@ -139,4 +143,40 @@ export function handlePDFError(res, error) {
     msg: 'Failed to generate PDF', 
     error: error.message 
   });
-} 
+}
+
+/**
+ * Generate customer orders PDF and send response
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+export async function generateCustomerOrdersPDF(req, res) {
+  try {
+    const data = req.body;
+    
+    if (!data.customer || !data.orders) {
+      return res.status(400).json({ error: '缺少必要数据：customer和orders字段是必需的' });
+    }
+    
+    const pdfBuffer = await generatePDF(data, 'customerOrders');
+    
+    // Set filename: Customer_[CustomerName]_Orders_[Date].pdf
+    const customerName = data.customer.name || 'Unknown';
+    const date = new Date().toISOString().split('T')[0];
+    const filename = `Customer_${customerName.replace(/\s+/g, '_')}_Orders_${date}.pdf`;
+    
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(pdfBuffer);
+  } catch (error) {
+    console.error('生成客户订单PDF时出错:', error);
+    res.status(500).json({ error: '生成PDF时发生错误', details: error.message });
+  }
+}
+
+module.exports = {
+  generatePDF,
+  sendPDFResponse,
+  handlePDFError,
+  generateCustomerOrdersPDF
+}; 

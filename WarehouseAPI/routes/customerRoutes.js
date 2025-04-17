@@ -1,6 +1,8 @@
 import express from 'express';
 import Customer from '../Models/customerModel.js';
+import Order from '../Models/orderModel.js';
 import { Op } from 'sequelize';
+import { generateCustomerOrdersPDF } from '../utils/pdfGenerator.js';
 // import { authRequired } from '../middlewares/authRequired.js';
 
 const router = express.Router();
@@ -124,6 +126,118 @@ router.delete('/:id', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, msg: 'Server error' });
+  }
+});
+
+/**
+ * GET /api/customers/:id/orders/pdf
+ * 生成客户订单PDF报告
+ */
+router.get('/:id/orders/pdf', async (req, res) => {
+  try {
+    const customerId = req.params.id;
+    const { startDate, endDate, status, paymentStatus } = req.query;
+    
+    console.log(`接收到PDF生成请求，客户ID: ${customerId}, 过滤条件:`, req.query);
+    
+    // 查询客户信息
+    const customer = await Customer.findByPk(customerId);
+    if (!customer) {
+      return res.status(404).json({ success: false, msg: '未找到客户' });
+    }
+    
+    // 构建查询条件
+    const where = { customer_id: customerId };
+    
+    // 添加日期过滤
+    if (startDate && endDate) {
+      where.created_at = {
+        [Op.between]: [new Date(startDate), new Date(endDate)]
+      };
+    } else if (startDate) {
+      where.created_at = { [Op.gte]: new Date(startDate) };
+    } else if (endDate) {
+      where.created_at = { [Op.lte]: new Date(endDate) };
+    }
+    
+    // 添加订单状态过滤
+    if (status === 'completed') {
+      where.is_completed = 1;
+    } else if (status === 'pending') {
+      where.is_completed = 0;
+    }
+    
+    // 添加支付状态过滤
+    if (paymentStatus === 'paid') {
+      where.is_paid = 1;
+    } else if (paymentStatus === 'unpaid') {
+      where.is_paid = 0;
+    }
+    
+    console.log('查询条件:', where);
+    
+    // 查询订单
+    const orders = await Order.findAll({
+      where,
+      order: [['created_at', 'DESC']],
+      raw: true
+    });
+    
+    console.log(`找到 ${orders.length} 个订单`);
+    
+    // 计算未付款总额
+    const totalUnpaid = orders
+      .filter(order => order.is_paid === 0)
+      .reduce((sum, order) => sum + parseFloat(order.total_price || 0), 0);
+    
+    // 格式化数据用于PDF生成
+    const formattedOrders = orders.map(order => ({
+      _id: order.id,
+      orderNumber: order.order_number,
+      orderDate: order.created_at,
+      status: order.is_completed ? 'completed' : 'pending',
+      paymentStatus: order.is_paid ? 'paid' : 'unpaid',
+      totalAmount: order.total_price,
+      remark: order.remark || ''
+    }));
+    
+    const formattedCustomer = {
+      name: customer.name,
+      contactPerson: customer.contact_person || '',
+      phone: customer.phone || '',
+      email: customer.email || '',
+      address: customer.address || ''
+    };
+    
+    // 构建过滤器对象
+    const filters = {
+      startDate,
+      endDate,
+      status,
+      paymentStatus
+    };
+    
+    // 构建传递给PDF生成器的数据
+    const pdfData = {
+      customer: formattedCustomer,
+      orders: formattedOrders,
+      totalUnpaid,
+      filters
+    };
+    
+    console.log('准备生成PDF，数据结构:', JSON.stringify({
+      customer: formattedCustomer,
+      ordersCount: formattedOrders.length,
+      totalUnpaid,
+      filters
+    }));
+    
+    // 生成PDF并发送响应
+    await generateCustomerOrdersPDF(req, res, pdfData);
+    
+  } catch (err) {
+    console.error('生成客户订单PDF报告时出错:', err);
+    res.status(500).json({ success: false, msg: '服务器错误', error: err.message });
   }
 });
 
