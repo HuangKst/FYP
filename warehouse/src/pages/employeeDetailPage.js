@@ -75,6 +75,9 @@ const EmployeeDetailPage = () => {
     reason: ''
   });
 
+  const [totalOvertimeHours, setTotalOvertimeHours] = useState(0);
+  const [totalLeaveDays, setTotalLeaveDays] = useState(0);
+
   // 格式化日期
   const formatDate = (dateString) => {
     try {
@@ -179,6 +182,33 @@ const EmployeeDetailPage = () => {
   useEffect(() => {
     applyLeaveFilter();
   }, [leaveFilter, applyLeaveFilter]);
+
+  // 计算总加班时间
+  useEffect(() => {
+    const calculateTotalOvertimeHours = () => {
+      const total = filteredOvertimes.reduce((sum, overtime) => 
+        sum + parseFloat(overtime.hours || 0), 0);
+      setTotalOvertimeHours(total.toFixed(2));
+    };
+    
+    calculateTotalOvertimeHours();
+  }, [filteredOvertimes]);
+
+  // 计算总请假时间
+  useEffect(() => {
+    const calculateTotalLeaveDays = () => {
+      const total = filteredLeaves.reduce((sum, leave) => {
+        const startDate = new Date(leave.start_date);
+        const endDate = new Date(leave.end_date);
+        const diffTime = Math.abs(endDate - startDate);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // 包括首尾两天
+        return sum + diffDays;
+      }, 0);
+      setTotalLeaveDays(total);
+    };
+    
+    calculateTotalLeaveDays();
+  }, [filteredLeaves]);
 
   // 处理加班记录
   const handleAddOvertime = async () => {
@@ -399,6 +429,9 @@ const EmployeeDetailPage = () => {
                   <IconButton onClick={resetOvertimeFilter} size="small">
                     <ClearIcon />
                   </IconButton>
+                  <Typography>
+                    总计: <strong>{totalOvertimeHours}</strong> 小时
+                  </Typography>
                 </Stack>
               </Box>
 
@@ -483,6 +516,9 @@ const EmployeeDetailPage = () => {
                   <IconButton onClick={resetLeaveFilter} size="small">
                     <ClearIcon />
                   </IconButton>
+                  <Typography>
+                    总计: <strong>{totalLeaveDays}</strong> 天
+                  </Typography>
                 </Stack>
               </Box>
 
