@@ -39,7 +39,8 @@ import {
     importInventoryFromExcel, 
     fetchMaterials, 
     exportInventoryToExcel,
-    deleteInventoryItem
+    deleteInventoryItem,
+    updateInventoryItem
 } from '../api/inventoryApi';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
@@ -48,6 +49,8 @@ import FileUploadIcon from '@mui/icons-material/FileUpload';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import Pagination from '../component/Pagination';
+import MaterialCard from '../component/materialcard';
+import EditIcon from '@mui/icons-material/Edit';
 
 const InventoryPage = () => {
     const [inventory, setInventory] = useState([]);
@@ -75,6 +78,11 @@ const InventoryPage = () => {
         total: 0,
         totalPages: 0
     });
+
+    const [selectedItem, setSelectedItem] = useState(null);
+    const [editDialogOpen, setEditDialogOpen] = useState(false);
+    const [editQuantity, setEditQuantity] = useState('');
+    const [editDensity, setEditDensity] = useState('');
 
     useEffect(() => {
         loadInventory();
@@ -240,7 +248,6 @@ const InventoryPage = () => {
     // 获取库存状态
     const getStockStatus = (quantity) => {
         if (quantity < 20) return { label: 'Low Stock', color: 'error' };
-        if (quantity < 50) return { label: 'Medium Stock', color: 'warning' };
         return { label: 'In Stock', color: 'success' };
     };
 
@@ -253,6 +260,37 @@ const InventoryPage = () => {
     const handlePageSizeChange = (event) => {
         setPageSize(parseInt(event.target.value));
         setPage(1); // 重置到第一页
+    };
+
+    const handleEditClick = (item, e) => {
+        if (e) e.stopPropagation();
+        setSelectedItem(item);
+        setEditQuantity(item.quantity);
+        setEditDensity(item.density || '');
+        setEditDialogOpen(true);
+    };
+    
+    const handleCloseEditDialog = () => {
+        setEditDialogOpen(false);
+        setSelectedItem(null);
+    };
+    
+    const handleUpdateItem = async () => {
+        try {
+            const result = await updateInventoryItem(
+                selectedItem.id,
+                editQuantity,
+                editDensity
+            );
+            
+            if (result.success) {
+                handleCloseEditDialog();
+                handleSearch(); // 更新数据
+                showSnackbar('Item updated successfully', 'success');
+            }
+        } catch (error) {
+            showSnackbar('Update failed', 'error');
+        }
     };
 
     return (
@@ -444,12 +482,11 @@ const InventoryPage = () => {
                         {inventory.map((item) => (
                                     <React.Fragment key={item.id}>
                                         <ListItem
+                                            onClick={() => handleEditClick(item)}
                                             sx={{
                                                 cursor: 'pointer',
                                                 '&:hover': {
-                                                    bgcolor: 'action.hover',
-                                                    transform: 'translateX(6px)',
-                                                    transition: 'all 0.2s'
+                                                    // 移除悬停效果
                                                 },
                                                 borderRadius: 2,
                                                 mb: 1,
@@ -520,24 +557,35 @@ const InventoryPage = () => {
                                                     }
                                                 />
                                             </Box>
-                                            <IconButton
-                                                edge="end"
-                                                aria-label="delete"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleDeleteItem(item.id);
-                                                }}
-                                                sx={{
-                                                    '&:hover': {
-                                                        color: 'error.main',
-                                                    },
-                                                    ml: 1
-                                                }}
-                                            >
-                                                <DeleteIcon />
-                                            </IconButton>
+                                            <Box>
+                                                <IconButton
+                                                    edge="end"
+                                                    aria-label="edit"
+                                                    onClick={(e) => handleEditClick(item, e)}
+                                                    sx={{
+                                                        color: 'primary.main',
+                                                        mr: 1
+                                                    }}
+                                                >
+                                                    <EditIcon />
+                                                </IconButton>
+                                                <IconButton
+                                                    edge="end"
+                                                    aria-label="delete"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDeleteItem(item.id);
+                                                    }}
+                                                    sx={{
+                                                        '&:hover': {
+                                                            color: 'error.main',
+                                                        }
+                                                    }}
+                                                >
+                                                    <DeleteIcon />
+                                                </IconButton>
+                                            </Box>
                                         </ListItem>
-                                        <Divider component="li" sx={{ opacity: 0.5 }} />
                                     </React.Fragment>
                                 ))}
                                 {inventory.length === 0 && (
@@ -586,69 +634,14 @@ const InventoryPage = () => {
                             }}>
                                 {inventory.map((item) => (
                                     <Grid item xs={12} sm={6} md={4} key={item.id}>
-                                        <Card 
-                                            sx={{ 
-                                                borderRadius: 2,
-                                                '&:hover': {
-                                                    boxShadow: 6,
-                                                    transform: 'translateY(-4px)',
-                                                    transition: 'all 0.2s'
-                                                }
-                                            }}
-                                        >
-                                            <CardContent>
-                                                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                                                    <Avatar 
-                                                        sx={{ 
-                                                            mr: 2, 
-                                                            bgcolor: getRandomColor(item.material),
-                                                            width: 40,
-                                                            height: 40
-                                                        }}
-                                                    >
-                                                        {getInitials(item.material)}
-                                                    </Avatar>
-                                                    <Box>
-                                                        <Typography variant="h6" component="div">
-                                                            {item.material}
-                                                        </Typography>
-                                                        <Chip 
-                                                            label={getStockStatus(item.quantity).label} 
-                                                            color={getStockStatus(item.quantity).color}
-                                                            size="small"
-                                                        />
-                                                    </Box>
-                                                </Box>
-                                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                                                    Spec: {item.specification || 'Not set'}
-                                                </Typography>
-                                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                                                    Quantity: {item.quantity}
-                                                </Typography>
-                                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                                                    Density: {item.density || 'Not set'}
-                                                </Typography>
-                                                <Typography variant="body2" color="text.secondary">
-                                                    Created: {new Date(item.created_at).toLocaleDateString()}
-                                                </Typography>
-                                            </CardContent>
-                                            <CardActions>
-                                                <Button 
-                                                    size="small" 
-                                                    color="primary"
-                                                    onClick={() => {/* View details */}}
-                                                >
-                                                    View Details
-                                                </Button>
-                                                <Button 
-                                                    size="small" 
-                                                    color="error"
-                                                    onClick={() => handleDeleteItem(item.id)}
-                                                >
-                                                    Delete
-                                                </Button>
-                                            </CardActions>
-                                        </Card>
+                                        <MaterialCard 
+                                            item={item}
+                                            getStockStatus={getStockStatus}
+                                            getInitials={getInitials}
+                                            getRandomColor={getRandomColor}
+                                            onDelete={handleDeleteItem}
+                                            onUpdate={handleSearch}
+                                        />
                                     </Grid>
                                 ))}
                                 {inventory.length === 0 && (
@@ -774,6 +767,65 @@ const InventoryPage = () => {
                         {snackbar.message}
                     </Alert>
                 </Snackbar>
+
+                {/* Edit Dialog */}
+                <Dialog 
+                    open={editDialogOpen} 
+                    onClose={handleCloseEditDialog}
+                    PaperProps={{
+                        sx: { borderRadius: 2 }
+                    }}
+                >
+                    <DialogTitle>Edit Inventory Item</DialogTitle>
+                    <DialogContent>
+                        {selectedItem && (
+                            <Box sx={{ mt: 1 }}>
+                                <Typography variant="subtitle1" sx={{ mb: 2 }}>
+                                    {selectedItem.material} - {selectedItem.specification}
+                                </Typography>
+                                <TextField
+                                    autoFocus
+                                    margin="dense"
+                                    label="Quantity"
+                                    type="number"
+                                    fullWidth
+                                    value={editQuantity}
+                                    onChange={(e) => setEditQuantity(e.target.value)}
+                                    sx={{ mb: 2 }}
+                                />
+                                <TextField
+                                    margin="dense"
+                                    label="Density (Optional)"
+                                    type="number"
+                                    fullWidth
+                                    value={editDensity}
+                                    onChange={(e) => setEditDensity(e.target.value)}
+                                />
+                            </Box>
+                        )}
+                    </DialogContent>
+                    <DialogActions sx={{ px: 3, pb: 2 }}>
+                        <Button 
+                            onClick={handleCloseEditDialog} 
+                            sx={{ 
+                                textTransform: 'none',
+                                borderRadius: 2
+                            }}
+                        >
+                            Cancel
+                        </Button>
+                        <Button 
+                            onClick={handleUpdateItem} 
+                            variant="contained"
+                            sx={{ 
+                                textTransform: 'none',
+                                borderRadius: 2
+                            }}
+                        >
+                            Update
+                        </Button>
+                    </DialogActions>
+                </Dialog>
             </Box>
         </Container>
     );

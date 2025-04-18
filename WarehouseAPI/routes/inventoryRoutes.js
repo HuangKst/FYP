@@ -16,7 +16,7 @@ router.get('/',async (req, res) => {
     const where = {};
     if (material) where.material = material;
     if (spec) where.specification = { [Op.like]: `%${spec}%` };
-    if (lowStock === 'true') where.quantity = { [Op.lt]: 50 }; // 低于 50 触发预警
+    if (lowStock === 'true') where.quantity = { [Op.lt]: 20 }; // 低于 20 触发预警
 
     // 计算偏移量
     const offset = (parseInt(page) - 1) * parseInt(pageSize);
@@ -163,7 +163,7 @@ router.get('/export', async (req, res) => {
     // 添加筛选条件
     if (material) where.material = material;
     if (spec) where.specification = { [Op.like]: `%${spec}%` };
-    if (lowStock === 'true') where.quantity = { [Op.lt]: 50 }; // 低于 50 触发预警
+    if (lowStock === 'true') where.quantity = { [Op.lt]: 20 }; // 低于 20 触发预警
     
     const data = await Inventory.findAll({
       where,
