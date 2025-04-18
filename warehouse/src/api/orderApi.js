@@ -112,3 +112,89 @@ export const generateOrderPDF = async (orderId) => {
     return handleError(error, 'Failed to generate PDF');
   }
 };
+
+// 获取报价订单列表（最多10条）
+export const fetchQuoteOrders = async (limit = 10) => {
+  try {
+    const response = await instance.get('/orders', {
+      params: {
+        type: 'QUOTE',
+        page: 1,
+        pageSize: limit
+      }
+    });
+    return response.data;
+  } catch (error) {
+    return handleError(error, 'Failed to fetch quote orders');
+  }
+};
+
+// 获取未完成订单列表（最多10条）
+export const fetchIncompleteOrders = async (limit = 10) => {
+  try {
+    const response = await instance.get('/orders', {
+      params: {
+        type: 'SALES',
+        completed: 'false',
+        page: 1,
+        pageSize: limit
+      }
+    });
+    return response.data;
+  } catch (error) {
+    return handleError(error, 'Failed to fetch incomplete orders');
+  }
+};
+
+// 获取未付款订单列表（最多10条）
+export const fetchUnpaidOrders = async (limit = 10) => {
+  try {
+    const response = await instance.get('/orders', {
+      params: {
+        type: 'SALES',
+        paid: 'false',
+        page: 1,
+        pageSize: limit
+      }
+    });
+    return response.data;
+  } catch (error) {
+    return handleError(error, 'Failed to fetch unpaid orders');
+  }
+};
+
+// 将报价单转换为销售单
+export const convertQuoteToSalesOrder = async (orderId) => {
+  try {
+    const response = await instance.put(`/orders/${orderId}`, {
+      order_type: 'SALES'
+    });
+    return response.data;
+  } catch (error) {
+    return handleError(error, 'Failed to convert quote to sales order');
+  }
+};
+
+// 标记订单为已完成
+export const markOrderAsCompleted = async (orderId) => {
+  try {
+    const response = await instance.put(`/orders/${orderId}`, {
+      is_completed: true
+    });
+    return response.data;
+  } catch (error) {
+    return handleError(error, 'Failed to mark order as completed');
+  }
+};
+
+// 标记订单为已付款
+export const markOrderAsPaid = async (orderId) => {
+  try {
+    const response = await instance.put(`/orders/${orderId}`, {
+      is_paid: true
+    });
+    return response.data;
+  } catch (error) {
+    return handleError(error, 'Failed to mark order as paid');
+  }
+};

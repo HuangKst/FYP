@@ -22,7 +22,7 @@ import {
     Grid,
     Divider
 } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { fetchOrders } from '../api/orderApi';
 import OrderNumberSearch from '../component/button/searchButtonByOrderID';
 import SearchIcon from '@mui/icons-material/Search';
@@ -32,6 +32,7 @@ import Pagination from '../component/Pagination';
 
 const OrderPage = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(false);
     
@@ -52,48 +53,42 @@ const OrderPage = () => {
         pageSize: 10,
         totalPages: 1
     });
-
-    // 导航到订单详情页面
-    const handleOpenDetail = (orderId) => {
-        navigate(`/order/${orderId}`);
-    };
-
-    // 确保分页数据完整性
-    const ensurePaginationData = (paginationData) => {
-        return {
-            total: paginationData?.total || 0,
-            page: paginationData?.page || page,
-            pageSize: paginationData?.pageSize || pageSize,
-            totalPages: paginationData?.totalPages || 1
-        };
-    };
-
-    // 执行搜索，整合所有搜索条件
-    const handleSearch = async () => {
+    
+    // 修改handleSearch函数，使其可以接收参数或使用状态中的值
+    const handleSearch = async (searchParams = null) => {
         setLoading(true);
         try {
+            // 使用传入的参数或使用组件状态值
+            const searchType = searchParams?.orderType !== undefined ? searchParams.orderType : orderType;
+            const searchIsPaid = searchParams?.isPaid !== undefined ? searchParams.isPaid : isPaid;
+            const searchIsCompleted = searchParams?.isCompleted !== undefined ? searchParams.isCompleted : isCompleted;
+            const searchCustomerName = searchParams?.customerName !== undefined ? searchParams.customerName : customerName;
+            const searchPage = searchParams?.page !== undefined ? searchParams.page : page;
+            const searchPageSize = searchParams?.pageSize !== undefined ? searchParams.pageSize : pageSize;
+            
             // 获取订单号
             const orderNumber = window.orderNumberSearchComponent?.getOrderNumber() || '';
-            console.log("搜索条件:", {
-                orderType, 
-                isPaid,
-                isCompleted,
-                customerName,
+            
+            console.log("执行搜索，条件:", {
+                orderType: searchType, 
+                isPaid: searchIsPaid,
+                isCompleted: searchIsCompleted,
+                customerName: searchCustomerName,
                 orderNumber,
-                page,
-                pageSize
+                page: searchPage,
+                pageSize: searchPageSize
             });
             
             // 调用API搜索订单
             const response = await fetchOrders(
-                orderType,  // 这里直接传递下拉框的值
-                isPaid !== null ? isPaid : undefined,
-                isCompleted !== null ? isCompleted : undefined,
-                customerName,
+                searchType,
+                searchIsPaid !== null ? searchIsPaid : undefined,
+                searchIsCompleted !== null ? searchIsCompleted : undefined,
+                searchCustomerName,
                 null,  // customerId
                 orderNumber,
-                page,
-                pageSize
+                searchPage,
+                searchPageSize
             );
             
             if (response.success) {
@@ -107,10 +102,62 @@ const OrderPage = () => {
         }
     };
 
-    // 初始加载时获取订单
+    // 修改初始加载时的useEffect，确保它只执行一次并处理URL参数
     useEffect(() => {
-        handleSearch();
-    }, [page, pageSize]); // 页码或每页数量变化时重新加载
+        const params = new URLSearchParams(location.search);
+        console.log("页面初始加载，检查URL参数:", params.toString());
+        
+        let searchParams = {};
+        let hasSearchParams = false;
+        
+        // 读取订单类型
+        const typeParam = params.get('type');
+        if (typeParam) {
+            setOrderType(typeParam);
+            searchParams.orderType = typeParam;
+            hasSearchParams = true;
+        }
+        
+        // 读取支付状态
+        const paidParam = params.get('paid');
+        if (paidParam !== null) {
+            const isPaidValue = paidParam === 'true';
+            setIsPaid(isPaidValue);
+            searchParams.isPaid = isPaidValue;
+            hasSearchParams = true;
+        }
+        
+        // 读取完成状态
+        const completedParam = params.get('completed');
+        if (completedParam !== null) {
+            const isCompletedValue = completedParam === 'true';
+            setIsCompleted(isCompletedValue);
+            searchParams.isCompleted = isCompletedValue;
+            hasSearchParams = true;
+        }
+        
+        // 立即执行搜索 - 无论是否有URL参数
+        console.log("初始加载 - 执行搜索", hasSearchParams ? searchParams : "默认参数");
+        
+        // 增加短暂延迟确保DOM已完全加载
+        setTimeout(() => {
+            if (hasSearchParams) {
+                handleSearch(searchParams);
+            } else {
+                handleSearch();
+            }
+        }, 100);
+        
+    }, []); // 空依赖数组确保只在组件挂载时执行一次
+
+    // 页码或每页数量变化时重新加载
+    useEffect(() => {
+        // 避免初次加载时重复执行
+        if (page !== 1 || pageSize !== 10) {
+            console.log("页码或每页数量变化，执行搜索:", { page, pageSize });
+            handleSearch();
+        }
+    }, [page, pageSize]);
 
     // 处理页码变化
     const handlePageChange = (newPage) => {
@@ -132,6 +179,8 @@ const OrderPage = () => {
         setPage(1);
         // 重置订单号搜索框
         window.orderNumberSearchComponent?.resetOrderNumber();
+        // 清除URL参数
+        navigate('/orders', { replace: true });
         // 重新加载所有订单
         handleSearch();
     };
@@ -153,6 +202,21 @@ const OrderPage = () => {
         
         // 默认返回0
         return '0.00';
+    };
+
+    // 导航到订单详情页面
+    const handleOpenDetail = (orderId) => {
+        navigate(`/order/${orderId}`);
+    };
+
+    // 确保分页数据完整性
+    const ensurePaginationData = (paginationData) => {
+        return {
+            total: paginationData?.total || 0,
+            page: paginationData?.page || page,
+            pageSize: paginationData?.pageSize || pageSize,
+            totalPages: paginationData?.totalPages || 1
+        };
     };
 
     return (

@@ -14,6 +14,7 @@ import employeeRoutes from './routes/employeeRoutes.js';
 import employeeLeaveRoutes from './routes/employeeLeaveRoutes.js';
 import employeeOvertimeRoutes from './routes/employeeOvertimeRoutes.js';
 import materialDailyPriceRoutes from './routes/materialDailyPriceRoutes.js';
+import statsRoutes from './routes/statsRoutes.js';
 import { initScheduler } from './scheduler.js';
 import logger from './logger/index.js';
 dotenv.config();
@@ -38,6 +39,9 @@ app.get('/api/employee-overtimes/employee/:id/pdf', employeeOvertimeRoutes);
 app.get('/api/material-prices/real-time',authenticate, adminAuth, logger, materialDailyPriceRoutes);
 // 添加初始化材料价格数据库路由 - 需要认证
 app.post('/api/material-prices/init-database', authenticate, adminAuth, logger, materialDailyPriceRoutes);
+
+// 统计路由 - 需要认证
+app.use('/api/stats', authenticate, logger, statsRoutes);
 
 // 其他routes需要认证
 app.use('/api/admin', authenticate, adminAuth, logger, adminRouter);

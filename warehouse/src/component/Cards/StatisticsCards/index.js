@@ -3,7 +3,7 @@ import { Box, Card, Typography, Divider, Icon } from "@mui/material";
 import { ArrowUpward, ArrowDownward } from '@mui/icons-material';
 
 // ComplexStatisticsCard 组件 - 模拟Material Dashboard的卡片
-const ComplexStatisticsCard = ({ color, title, count, percentage, icon }) => {
+const ComplexStatisticsCard = ({ color, title, count, percentage, icon, onClick }) => {
   // 颜色映射
   const getColorShade = (colorName) => {
     switch(colorName) {
@@ -19,15 +19,24 @@ const ComplexStatisticsCard = ({ color, title, count, percentage, icon }) => {
   };
 
   return (
-    <Card sx={{ 
-      height: '100%', 
-      borderRadius: '16px', 
-      overflow: 'visible',
-      boxShadow: '0 5px 15px rgba(0,0,0,0.1)', 
-      position: 'relative',
-      pt: 2,
-      backgroundColor: 'white'
-    }}>
+    <Card 
+      sx={{ 
+        height: '100%', 
+        borderRadius: '16px', 
+        overflow: 'visible',
+        boxShadow: '0 5px 15px rgba(0,0,0,0.1)', 
+        position: 'relative',
+        pt: 2,
+        backgroundColor: 'white',
+        cursor: onClick ? 'pointer' : 'default',
+        transition: 'transform 0.2s, box-shadow 0.2s',
+        '&:hover': onClick ? {
+          transform: 'translateY(-5px)',
+          boxShadow: '0 8px 20px rgba(0,0,0,0.15)'
+        } : {}
+      }}
+      onClick={onClick}
+    >
       <Box
         sx={{ 
           backgroundColor: getColorShade(color), 
