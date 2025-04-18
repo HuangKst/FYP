@@ -18,16 +18,20 @@ DailyMaterialPrice.init({
     type: DataTypes.STRING(50),
     allowNull: false
   },
-  price_per_kg: {
+  price_per_ton: {
     type: DataTypes.DECIMAL(15, 2),
     defaultValue: 0.00
+  },
+  created_at: {
+    type: DataTypes.DATE,
+    allowNull: true
   }
 }, {
   sequelize,
   modelName: 'DailyMaterialPrice',
   tableName: 'daily_material_price',
   timestamps: true,
-  createdAt: 'created_at',
+  createdAt: false,
   updatedAt: 'updated_at'
 });
 

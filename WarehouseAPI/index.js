@@ -13,6 +13,8 @@ import inventoryRoutes from './routes/inventoryRoutes.js';
 import employeeRoutes from './routes/employeeRoutes.js';
 import employeeLeaveRoutes from './routes/employeeLeaveRoutes.js';
 import employeeOvertimeRoutes from './routes/employeeOvertimeRoutes.js';
+import materialDailyPriceRoutes from './routes/materialDailyPriceRoutes.js';
+import { initScheduler } from './scheduler.js';
 import logger from './logger/index.js';
 dotenv.config();
 
@@ -32,11 +34,17 @@ app.get('/api/orders/:id/pdf', orderRoutes);
 app.get('/api/employee-leaves/employee/:id/pdf', employeeLeaveRoutes);
 app.get('/api/employee-overtimes/employee/:id/pdf', employeeOvertimeRoutes);
 
+// 添加实时材料价格路由 - 不需要认证
+app.get('/api/material-prices/real-time',authenticate, adminAuth, logger, materialDailyPriceRoutes);
+// 添加初始化材料价格数据库路由 - 需要认证
+app.post('/api/material-prices/init-database', authenticate, adminAuth, logger, materialDailyPriceRoutes);
+
 // 其他routes需要认证
 app.use('/api/admin', authenticate, adminAuth, logger, adminRouter);
 app.use('/api/customers', authenticate, logger, customerRoutes);
 app.use('/api/orders', authenticate, logger, orderRoutes);
 app.use('/api/inventory', authenticate, logger, inventoryRoutes);
+app.use('/api/material-prices', authenticate, logger, materialDailyPriceRoutes);
 
 // 员工相关路由需要管理员权限
 app.use('/api/employees', authenticate, adminAuth, logger, employeeRoutes);
@@ -45,6 +53,9 @@ app.use('/api/employee-overtimes', authenticate, adminAuth, logger, employeeOver
 
 // 错误处理器
 app.use(defaultErrHandler);
+
+// 初始化调度器
+initScheduler();
 
 // 监听
 app.listen(port, () => {
