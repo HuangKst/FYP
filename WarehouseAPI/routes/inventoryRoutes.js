@@ -153,6 +153,34 @@ router.post('/import',async (req, res) => {
   }
 });
 
+/**
+ * GET /api/inventory/all
+ * 获取所有库存数据，不分页 - 主要用于库存检查和订单创建
+ */
+router.get('/all',async (req, res) => {
+  try {
+    const { material, spec, lowStock } = req.query;
+    const where = {};
+    if (material) where.material = material;
+    if (spec) where.specification = { [Op.like]: `%${spec}%` };
+    if (lowStock === 'true') where.quantity = { [Op.lt]: 20 }; // 低于 20 触发预警
+
+    // 获取所有匹配的数据，不应用分页限制
+    const list = await Inventory.findAll({ 
+      where, 
+      order: [['specification','ASC']]
+    });
+    
+    res.json({ 
+      success: true, 
+      inventory: list,
+      total: list.length
+    });
+  } catch (err) {
+    console.error('获取所有库存数据失败:', err);
+    res.status(500).json({ success: false, msg: 'Failed to fetch all inventory' });
+  }
+});
 
 // 导出库存到Excel
 router.get('/export', async (req, res) => {

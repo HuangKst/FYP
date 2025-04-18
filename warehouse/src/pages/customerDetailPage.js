@@ -80,14 +80,14 @@ const CustomerDetailPage = () => {
         setCustomer(response.customer);
         // 在这里直接设置总欠款，避免依赖customer状态
         const totalDebt = parseFloat(response.customer.total_debt || 0);
-        console.log(`客户 ${response.customer.name} 的总欠款: ¥${totalDebt}`);
+        console.log(`Customer ${response.customer.name} total debt: ¥${totalDebt}`);
         setTotalCustomerDebt(totalDebt);
       } else {
-        setError(response.msg || '获取客户详情失败');
+        setError(response.msg || 'Failed to fetch customer details');
       }
     } catch (err) {
       console.error('Error fetching customer details:', err);
-      setError('获取客户详情时发生错误');
+      setError('An error occurred while fetching customer details');
     } finally {
       setLoading(false);
     }
@@ -160,13 +160,13 @@ const CustomerDetailPage = () => {
         setTotalUnpaidAmount(calculateTotalUnpaid(formattedOrders));
       } else {
         console.error('加载订单失败:', data?.msg);
-        setError(data?.msg || '获取订单失败');
+        setError(data?.msg || 'Failed to load orders');
         setOrders([]);
         setFilteredOrders([]);
       }
     } catch (error) {
       console.error('Error loading orders:', error);
-      setError('加载订单时发生错误');
+      setError('An error occurred while loading orders');
     } finally {
       setLoading(false);
     }
@@ -272,11 +272,11 @@ const CustomerDetailPage = () => {
         const paginatedOrders = formattedOrders.slice(0, pageSize);
         setFilteredOrders(paginatedOrders);
       } else {
-        setError(response.msg || '搜索订单失败');
+        setError(response.msg || 'Failed to search orders');
       }
     } catch (error) {
       console.error('Error searching orders:', error);
-      setError('搜索订单时发生错误');
+      setError('An error occurred while searching orders');
     } finally {
       setLoading(false);
     }
@@ -342,25 +342,25 @@ const CustomerDetailPage = () => {
     setPagination(safeData);
   };
 
-  // 导出PDF处理函数
+  // PDF Export handler function
   const handleExportPdf = (exportAllOrders = false) => {
     if (!customerId || exportingPdf) return;
     
     setExportingPdf(true);
     
-    // 使用Snackbar显示加载状态
+    // Use Snackbar to display loading status
     setError('Generating PDF, please wait...');
     
-    // 获取当前订单号搜索值
+    // Get current order number search value
     const currentOrderNumber = window.orderNumberSearchComponent?.getOrderNumber() || '';
     
-    // 判断是否有筛选条件
+    // Check if there are any filter conditions
     const hasFilter = orderType || currentOrderNumber || isCompleted !== null || isPaid !== null;
     
-    // 检查筛选后的订单数量，如果有筛选条件且没有匹配订单，则设置exportAllOrders为true
+    // Check filtered orders count, if there are filter conditions but no matching orders, set exportAllOrders to true
     const hasFilteredOrders = filteredOrders && filteredOrders.length > 0;
     
-    // 记录当前状态
+    // Log current state
     console.log('Export PDF status:', {
       orderType,
       currentOrderNumber,
@@ -374,18 +374,18 @@ const CustomerDetailPage = () => {
       exportAllOrders
     });
     
-    // 修改：始终将includeAllOrders设置为true，无论是否有筛选条件
-    // 这样可以确保所有订单都包含在PDF中
+    // Modification: Always set includeAllOrders to true, regardless of filter conditions
+    // This ensures all orders are included in the PDF
     const shouldIncludeAllOrders = true;
     
-    // 构建导出选项 - 确保传递所有筛选条件
+    // Build export options - ensure all filter conditions are passed
     const exportOptions = {
-      // 基本信息
+      // Basic information
       customerName: customer.name,
-      // 始终设置includeAllOrders为true
+      // Always set includeAllOrders to true
       includeAllOrders: shouldIncludeAllOrders,
       
-      // 传递筛选参数，用于PDF中显示筛选条件
+      // Pass filter parameters for display in the PDF
       orderType: orderType || undefined,
       orderNumber: currentOrderNumber || undefined,
       status: isCompleted === true ? 'completed' : 
@@ -393,13 +393,13 @@ const CustomerDetailPage = () => {
       paymentStatus: isPaid === true ? 'paid' : 
                     isPaid === false ? 'unpaid' : undefined,
       
-      // 使用客户总欠款金额，不管当前筛选条件如何
+      // Use the customer's total debt amount, regardless of current filter conditions
       unpaidAmount: totalCustomerDebt,
-      // 显示设置 - 始终显示欠款金额，因为这是客户的总欠款
+      // Display settings - always show debt amount as this is the customer's total debt
       showUnpaid: true
     };
     
-    // 记录导出信息
+    // Log export information
     console.log('Export PDF details:', { 
       customerId,
       exportOptions,
@@ -410,18 +410,18 @@ const CustomerDetailPage = () => {
       totalCustomerDebt
     });
     
-    // 调用API导出PDF
+    // Call API to export PDF
     generateCustomerOrdersPDF(customerId, exportOptions)
       .then(result => {
         if (result.success) {
-          // 更新为成功消息
+          // Update with success message
           setError('PDF has been generated and download started');
         } else if (result.suggestExportAll) {
-          // 如果建议导出所有订单
+          // If suggesting to export all orders
           setError(`No orders found with current filters. Customer has ${result.allOrdersCount} orders in total. Exporting all orders.`);
           
-          // TODO: 这里改为使用对话框确认是否导出全部
-          // 暂时保持简单，直接导出全部
+          // TODO: Change this to use a dialog to confirm whether to export all
+          // For now, keep it simple and directly export all
           setExportingPdf(false);
           handleExportPdf(true);
         } else {
@@ -525,12 +525,12 @@ const CustomerDetailPage = () => {
           flex: 1, 
           p: 3, 
           backgroundColor: '#f5f5f5', 
-          overflow: 'hidden'
+          overflow: 'auto'
         }}>
           {/* Customer info card component */}
           <CustomerInfoCard customer={customer} />
 
-          {/* 订单搜索区域 - 使用与orderPage相同的组件和布局 */}
+          {/* Order search area - using the same components and layout as orderPage */}
           <Paper sx={{ p: 3, mb: 3, borderRadius: 2 }}>
             <Box sx={{ 
               display: 'flex', 
@@ -541,7 +541,7 @@ const CustomerDetailPage = () => {
             }}>
               <Typography variant="h6">Order History</Typography>
               
-              {/* 显示总欠款 */}
+              {/* Display total debt */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <Chip 
                   label={`Total Debt: ¥${parseFloat(customer?.total_debt || 0).toFixed(2)}`}
@@ -569,10 +569,10 @@ const CustomerDetailPage = () => {
               </Box>
             </Box>
             
-            {/* 搜索表单 */}
+            {/* Search form */}
             <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
               <Grid container spacing={2} alignItems="center">
-                {/* 第一行：搜索字段 */}
+                {/* First row: search fields */}
                 <Grid item xs={12} md={6} sx={{ display: 'flex', alignItems: 'center' }}>
                   <OrderNumberSearch 
                     standalone={false}
@@ -599,7 +599,7 @@ const CustomerDetailPage = () => {
               </Grid>
             </Paper>
             
-            {/* 第二行：状态筛选和按钮 */}
+            {/* Second row: status filter and buttons */}
             <Box sx={{ 
               display: 'flex', 
               flexDirection: {xs: 'column', sm: 'row'}, 
@@ -607,7 +607,7 @@ const CustomerDetailPage = () => {
               alignItems: {xs: 'flex-start', sm: 'center'},
               mt: 2
             }}>
-              {/* 状态筛选 */}
+              {/* Status filter */}
               <Box sx={{ 
                 display: 'flex', 
                 flexDirection: 'row', 
@@ -650,7 +650,7 @@ const CustomerDetailPage = () => {
                 )}
               </Box>
 
-              {/* 操作按钮 */}
+              {/* Operation buttons */}
               <Box sx={{ 
                 display: 'flex', 
                 gap: 1.5,
@@ -681,9 +681,9 @@ const CustomerDetailPage = () => {
             </Box>
           </Paper>
           
-          {/* 订单列表 */}
-          <Paper sx={{ borderRadius: 2, maxHeight: 'calc(100vh - 480px)', overflow: 'auto' }}>
-            <TableContainer sx={{ maxHeight: 'calc(100vh - 530px)' }}>
+          {/* Order list */}
+          <Paper sx={{ borderRadius: 2 }}>
+            <TableContainer>
               <Table>
                 <TableHead>
                   <TableRow>
@@ -747,7 +747,7 @@ const CustomerDetailPage = () => {
               </Table>
             </TableContainer>
             
-            {/* 分页组件 */}
+            {/* Pagination component */}
             <Pagination 
               pagination={pagination}
               onPageChange={handlePageChange}

@@ -1,20 +1,20 @@
 /**
- * 通用PDF导出工具
- * 处理PDF文件的生成和下载
+ * General PDF Export Utility
+ * Handles PDF file generation and download
  */
 
 /**
- * 导出PDF文件
- * @param {string} url - API端点URL
- * @param {Object} queryParams - 查询参数
- * @param {string} filename - 下载文件名
- * @param {Function} onSuccess - 成功回调
- * @param {Function} onError - 错误回调
- * @param {Function} onComplete - 完成回调（无论成功或失败）
+ * Export PDF file
+ * @param {string} url - API endpoint URL
+ * @param {Object} queryParams - Query parameters
+ * @param {string} filename - Download filename
+ * @param {Function} onSuccess - Success callback
+ * @param {Function} onError - Error callback
+ * @param {Function} onComplete - Complete callback (regardless of success or failure)
  */
 export const exportPDF = async (url, queryParams = {}, filename, onSuccess, onError, onComplete) => {
   try {
-    // 构建URL和查询参数
+    // Build URL and query parameters
     let fullUrl = url;
     const queryString = Object.entries(queryParams)
       .filter(([_, value]) => value !== undefined && value !== null && value !== '')
@@ -25,33 +25,33 @@ export const exportPDF = async (url, queryParams = {}, filename, onSuccess, onEr
       fullUrl += `?${queryString}`;
     }
     
-    // 获取认证令牌
+    // Get authentication token
     const token = localStorage.getItem('token');
     
-    // 发送请求
+    // Send request
     const response = await fetch(fullUrl, {
       headers: {
         'Authorization': token ? `Bearer ${token}` : undefined
       }
     });
     
-    // 检查响应状态
+    // Check response status
     if (!response.ok) {
-      // 尝试读取错误信息
+      // Try to read error message
       let errorMessage;
       try {
         const errorData = await response.json();
-        errorMessage = errorData.msg || `错误: ${response.status} ${response.statusText}`;
+        errorMessage = errorData.msg || `Error: ${response.status} ${response.statusText}`;
       } catch (e) {
-        errorMessage = `错误: ${response.status} ${response.statusText}`;
+        errorMessage = `Error: ${response.status} ${response.statusText}`;
       }
       throw new Error(errorMessage);
     }
     
-    // 获取Blob数据
+    // Get Blob data
     const blob = await response.blob();
     
-    // 创建下载链接
+    // Create download link
     const downloadUrl = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = downloadUrl;
@@ -59,23 +59,23 @@ export const exportPDF = async (url, queryParams = {}, filename, onSuccess, onEr
     document.body.appendChild(link);
     link.click();
     
-    // 清理
+    // Cleanup
     setTimeout(() => {
       window.URL.revokeObjectURL(downloadUrl);
       document.body.removeChild(link);
     }, 100);
     
-    // 调用成功回调
+    // Call success callback
     if (onSuccess) {
       onSuccess();
     }
   } catch (error) {
-    // 调用错误回调
+    // Call error callback
     if (onError) {
       onError(error);
     }
   } finally {
-    // 调用完成回调
+    // Call complete callback
     if (onComplete) {
       onComplete();
     }

@@ -32,14 +32,71 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import { useNavigate } from 'react-router-dom';
 import { createOrder } from '../api/orderApi';
-import { fetchInventory } from '../api/inventoryApi';
+import { fetchInventory, fetchMaterials, fetchAllInventory } from '../api/inventoryApi';
 import { getCustomers } from '../api/customerApi';
+
+// 新增API：获取指定材料的规格
+const fetchSpecifications = async (material) => {
+    try {
+        // 使用新的不分页API，确保获取所有规格
+        const response = await fetchAllInventory(material);
+        if (response.success) {
+            // 从返回的库存数据中提取规格列表
+            const specs = [...new Set(response.inventory.map(item => item.specification))];
+            console.log(`API获取的材料 ${material} 规格:`, specs);
+            return specs;
+        }
+        return [];
+    } catch (error) {
+        console.error('获取规格失败:', error);
+        return [];
+    }
+};
+
+// 新增API：获取指定材料和规格的库存数据
+const fetchSpecificInventory = async (material, specification) => {
+    try {
+        // 使用不分页API获取所有该材料的库存数据
+        const response = await fetchAllInventory(material);
+        console.log(`查询材料 ${material} 的库存返回:`, response);
+        
+        if (response.success && response.inventory && response.inventory.length > 0) {
+            // 在前端进行精确匹配
+            const exactMatch = response.inventory.find(item => 
+                item.specification.trim().toLowerCase() === specification.trim().toLowerCase()
+            );
+            
+            console.log(`精确匹配 ${material}-${specification} 结果:`, exactMatch);
+            
+            if (exactMatch) {
+                return exactMatch;
+            }
+            
+            // 如果没有精确匹配，尝试更宽松的匹配
+            const looseMatch = response.inventory.find(item => 
+                item.specification.trim().toLowerCase().includes(specification.trim().toLowerCase()) || 
+                specification.trim().toLowerCase().includes(item.specification.trim().toLowerCase())
+            );
+            
+            console.log(`宽松匹配 ${material}-${specification} 结果:`, looseMatch);
+            
+            return looseMatch || null;
+        }
+        console.warn(`未找到 ${material} 的任何库存`);
+        return null;
+    } catch (error) {
+        console.error(`获取 ${material}-${specification} 库存失败:`, error);
+        return null;
+    }
+};
 
 const CreateOrderPage = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [customers, setCustomers] = useState([]);
     const [inventory, setInventory] = useState([]);
+    const [materials, setMaterials] = useState([]);
+    const [materialSpecs, setMaterialSpecs] = useState({}); // 存储各材料对应的规格
     const [confirmDialog, setConfirmDialog] = useState(false);
     const [inventoryDialog, setInventoryDialog] = useState(false);
     const [insufficientItems, setInsufficientItems] = useState([]);
@@ -65,14 +122,27 @@ const CreateOrderPage = () => {
     useEffect(() => {
         const loadData = async () => {
             try {
-                const customerResponse = await getCustomers();
+                // 并行加载所有数据以提高效率
+                const [customerResponse, inventoryResponse, materialsResponse] = await Promise.all([
+                    getCustomers(),
+                    // 使用不分页API获取所有库存
+                    fetchAllInventory(),
+                    fetchMaterials()
+                ]);
+                
                 if (customerResponse.success) {
                     setCustomers(customerResponse.customers || customerResponse.data || []);
                 }
                 
-                const inventoryResponse = await fetchInventory();
                 if (inventoryResponse.success) {
-                    setInventory(inventoryResponse.inventory || inventoryResponse.data || []);
+                    const inventoryData = inventoryResponse.inventory || inventoryResponse.data || [];
+                    console.log("初始化加载的所有库存数据:", inventoryData);
+                    setInventory(inventoryData);
+                }
+                
+                if (materialsResponse.success) {
+                    setMaterials(materialsResponse.materials || []);
+                    console.log("获取的材料列表:", materialsResponse.materials);
                 }
             } catch (error) {
                 console.error('Error loading data:', error);
@@ -109,6 +179,59 @@ const CreateOrderPage = () => {
         const newItems = [...orderItems];
         newItems[index][field] = value;
         
+        // 如果更新了物料，获取对应规格并自动填充
+        if (field === 'material') {
+            // 清空当前规格
+            newItems[index].specification = '';
+            
+            // 如果已经缓存了该材料的规格，直接使用
+            if (materialSpecs[value] && materialSpecs[value].length > 0) {
+                console.log(`使用缓存的 ${value} 规格:`, materialSpecs[value]);
+                if (materialSpecs[value].length === 1) {
+                    // 如果只有一个规格，自动填充
+                    newItems[index].specification = materialSpecs[value][0];
+                }
+            } else {
+                // 否则获取该材料的规格
+                fetchSpecifications(value).then(specs => {
+                    // 更新规格缓存
+                    setMaterialSpecs(prev => ({...prev, [value]: specs}));
+                    
+                    // 如果只有一个规格，自动填充
+                    if (specs.length === 1) {
+                        const updatedItems = [...orderItems];
+                        updatedItems[index].specification = specs[0];
+                        setOrderItems(updatedItems);
+                    }
+                });
+            }
+        }
+        
+        // 如果同时有材料和规格，获取最新的库存信息
+        if (field === 'specification' && newItems[index].material && value) {
+            fetchSpecificInventory(newItems[index].material, value).then(inventoryItem => {
+                if (inventoryItem) {
+                    console.log(`获取到 ${newItems[index].material}-${value} 的库存信息:`, inventoryItem);
+                    
+                    // 更新库存数据中的该项
+                    setInventory(prevInventory => {
+                        const updatedInventory = [...prevInventory];
+                        const existingIndex = updatedInventory.findIndex(
+                            item => item.material === newItems[index].material && item.specification === value
+                        );
+                        
+                        if (existingIndex >= 0) {
+                            updatedInventory[existingIndex] = inventoryItem;
+                        } else {
+                            updatedInventory.push(inventoryItem);
+                        }
+                        
+                        return updatedInventory;
+                    });
+                }
+            });
+        }
+        
         // 如果更新了物料或规格，自动填充库存信息
         if (field === 'material' || field === 'specification') {
             const inventoryItem = inventory.find(item => 
@@ -142,16 +265,28 @@ const CreateOrderPage = () => {
 
     // 获取可用物料列表
     const getMaterialOptions = () => {
-        const materials = [...new Set(inventory.map(item => item.material))];
+        console.log("使用API获取的材料列表:", materials);
         return materials;
     };
 
     // 获取指定物料的规格选项
     const getSpecificationOptions = (material) => {
         if (!material) return [];
-        return inventory
+        console.log("获取材料规格选项，材料:", material);
+        
+        // 优先使用缓存的规格数据
+        if (materialSpecs[material]) {
+            console.log(`使用缓存的 ${material} 规格:`, materialSpecs[material]);
+            return materialSpecs[material];
+        }
+        
+        // 兜底方案：从库存数据中提取
+        const specs = inventory
             .filter(item => item.material === material)
             .map(item => item.specification);
+        
+        console.log(`从库存数据中获取材料 ${material} 的规格:`, specs);
+        return specs;
     };
 
     // 模糊搜索规格
@@ -187,32 +322,152 @@ const CreateOrderPage = () => {
         if (orderType === 'SALES') {
             const insufficient = [];
             
-            for (const item of orderItems) {
-                const inventoryItem = inventory.find(inv => 
-                    inv.material === item.material && 
-                    inv.specification === item.specification
-                );
-                
-                if (!inventoryItem) {
-                    insufficient.push({
-                        material: item.material,
-                        specification: item.specification,
-                        required: parseFloat(item.quantity),
-                        available: 0,
-                        missing: parseFloat(item.quantity)
-                    });
-                    continue;
+            console.log("订单项:", orderItems);
+            console.log("当前加载的库存数据:", inventory);
+            
+            // 刷新库存数据，确保使用最新数据
+            try {
+                // 使用不分页API获取所有库存数据
+                const freshInventoryResponse = await fetchAllInventory();
+                if (freshInventoryResponse.success) {
+                    console.log("刷新获取的库存数据:", freshInventoryResponse.inventory);
+                    // 更新库存数据
+                    setInventory(freshInventoryResponse.inventory || freshInventoryResponse.data || []);
+                    
+                    // 使用最新库存数据进行检查
+                    const freshInventory = freshInventoryResponse.inventory || freshInventoryResponse.data || [];
+                    
+                    for (const item of orderItems) {
+                        console.log(`检查库存: 材料=${item.material}, 规格=${item.specification}, 需求数量=${item.quantity}`);
+                        
+                        // 标准化查询条件，移除前后空格
+                        const material = item.material.trim();
+                        const specification = item.specification.trim();
+                        
+                        // 尝试三种方式找到匹配的库存项
+                        // 1. 完全匹配（忽略大小写）
+                        let inventoryItem = freshInventory.find(inv => 
+                            inv.material.trim().toLowerCase() === material.toLowerCase() && 
+                            inv.specification.trim().toLowerCase() === specification.toLowerCase()
+                        );
+                        
+                        // 2. 如果没找到，尝试规格包含关系
+                        if (!inventoryItem) {
+                            inventoryItem = freshInventory.find(inv => 
+                                inv.material.trim().toLowerCase() === material.toLowerCase() && 
+                                (inv.specification.trim().toLowerCase().includes(specification.toLowerCase()) ||
+                                 specification.toLowerCase().includes(inv.specification.trim().toLowerCase()))
+                            );
+                        }
+                        
+                        // 3. 最后尝试原始方式
+                        if (!inventoryItem) {
+                            inventoryItem = freshInventory.find(inv => 
+                                inv.material === item.material && 
+                                inv.specification === item.specification
+                            );
+                        }
+                        
+                        console.log("匹配到的库存项:", inventoryItem);
+                        
+                        if (!inventoryItem) {
+                            insufficient.push({
+                                material: item.material,
+                                specification: item.specification,
+                                required: parseFloat(item.quantity),
+                                available: 0,
+                                missing: parseFloat(item.quantity)
+                            });
+                            console.log(`未找到库存: ${item.material}-${item.specification}`);
+                            continue;
+                        }
+                        
+                        const availableQty = parseFloat(inventoryItem.quantity);
+                        const requiredQty = parseFloat(item.quantity);
+                        
+                        console.log(`库存检查: 可用=${availableQty}, 需求=${requiredQty}`);
+                        
+                        if (availableQty < requiredQty) {
+                            insufficient.push({
+                                material: item.material,
+                                specification: item.specification,
+                                required: requiredQty,
+                                available: availableQty,
+                                missing: requiredQty - availableQty
+                            });
+                            console.log(`库存不足: 缺少${requiredQty - availableQty}个`);
+                        }
+                    }
+                } else {
+                    // 如果刷新失败，使用现有库存数据
+                    console.warn("刷新库存失败，使用现有库存数据");
+                    
+                    for (const item of orderItems) {
+                        console.log(`检查库存: 材料=${item.material}, 规格=${item.specification}, 需求数量=${item.quantity}`);
+                        
+                        // 标准化查询条件，移除前后空格
+                        const material = item.material.trim();
+                        const specification = item.specification.trim();
+                        
+                        // 尝试三种方式找到匹配的库存项
+                        // 1. 完全匹配（忽略大小写）
+                        let inventoryItem = inventory.find(inv => 
+                            inv.material.trim().toLowerCase() === material.toLowerCase() && 
+                            inv.specification.trim().toLowerCase() === specification.toLowerCase()
+                        );
+                        
+                        // 2. 如果没找到，尝试规格包含关系
+                        if (!inventoryItem) {
+                            inventoryItem = inventory.find(inv => 
+                                inv.material.trim().toLowerCase() === material.toLowerCase() && 
+                                (inv.specification.trim().toLowerCase().includes(specification.toLowerCase()) ||
+                                 specification.toLowerCase().includes(inv.specification.trim().toLowerCase()))
+                            );
+                        }
+                        
+                        // 3. 最后尝试原始方式
+                        if (!inventoryItem) {
+                            inventoryItem = inventory.find(inv => 
+                                inv.material === item.material && 
+                                inv.specification === item.specification
+                            );
+                        }
+                        
+                        console.log("匹配到的库存项:", inventoryItem);
+                        
+                        if (!inventoryItem) {
+                            insufficient.push({
+                                material: item.material,
+                                specification: item.specification,
+                                required: parseFloat(item.quantity),
+                                available: 0,
+                                missing: parseFloat(item.quantity)
+                            });
+                            console.log(`未找到库存: ${item.material}-${item.specification}`);
+                            continue;
+                        }
+                        
+                        const availableQty = parseFloat(inventoryItem.quantity);
+                        const requiredQty = parseFloat(item.quantity);
+                        
+                        console.log(`库存检查: 可用=${availableQty}, 需求=${requiredQty}`);
+                        
+                        if (availableQty < requiredQty) {
+                            insufficient.push({
+                                material: item.material,
+                                specification: item.specification,
+                                required: requiredQty,
+                                available: availableQty,
+                                missing: requiredQty - availableQty
+                            });
+                            console.log(`库存不足: 缺少${requiredQty - availableQty}个`);
+                        }
+                    }
                 }
-                
-                if (parseFloat(inventoryItem.quantity) < parseFloat(item.quantity)) {
-                    insufficient.push({
-                        material: item.material,
-                        specification: item.specification,
-                        required: parseFloat(item.quantity),
-                        available: parseFloat(inventoryItem.quantity),
-                        missing: parseFloat(item.quantity) - parseFloat(inventoryItem.quantity)
-                    });
-                }
+            } catch (error) {
+                console.error("刷新库存时出错:", error);
+                alert("检查库存时发生错误，请重试");
+                return;
             }
             
             // 如果有库存不足的项目，显示对话框

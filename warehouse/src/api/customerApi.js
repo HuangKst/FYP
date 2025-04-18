@@ -86,59 +86,83 @@ export const getCustomerOrders = async (customerId, page = 1, pageSize = 10) => 
 };
 
 /**
- * 生成客户订单PDF报告 - 使用与搜索相同的API，确保结果一致
- * @param {string} customerId - 客户ID
- * @param {Object} options - 过滤和显示选项
- * @returns {Promise<Object>} - 操作结果
+ * 获取客户的所有订单（不分页，主要用于导出）
+ * @param {number} customerId 客户ID
+ * @param {string} orderType 可选，订单类型筛选
+ * @param {boolean} isPaid 可选，付款状态筛选
+ * @param {boolean} isCompleted 可选，完成状态筛选
+ * @param {string} orderNumber 可选，订单号筛选
+ * @returns {Promise<Object>} 客户的所有订单
+ */
+export const getAllCustomerOrders = async (customerId, orderType, isPaid, isCompleted, orderNumber) => {
+  try {
+    const params = {};
+    if (orderType) params.orderType = orderType;
+    if (isPaid !== null && isPaid !== undefined) params.isPaid = isPaid;
+    if (isCompleted !== null && isCompleted !== undefined) params.isCompleted = isCompleted;
+    if (orderNumber) params.orderNumber = orderNumber;
+
+    const response = await instance.get(`/customers/${customerId}/orders/all`, { params });
+    return response.data;
+  } catch (error) {
+    return handleError(error, 'Failed to fetch all customer orders');
+  }
+};
+
+/**
+ * Generate customer orders PDF report - Uses the same API as search to ensure consistent results
+ * @param {string} customerId - Customer ID
+ * @param {Object} options - Filter and display options
+ * @returns {Promise<Object>} - Operation result
  */
 export const generateCustomerOrdersPDF = async (customerId, options = {}) => {
   try {
-    // 校验客户ID
+    // Validate customer ID
     if (!customerId) {
-      console.error('生成PDF错误: 客户ID为空');
-      return { success: false, message: '客户ID不能为空' };
+      console.error('PDF Generation Error: Customer ID is empty');
+      return { success: false, message: 'Customer ID cannot be empty' };
     }
     
-    // 详细记录接收到的原始参数
-    console.log('PDF导出 - 接收到的原始参数:', JSON.stringify(options, null, 2));
+    // Log received parameters in detail
+    console.log('PDF Export - Original parameters received:', JSON.stringify(options, null, 2));
     
-    // 1. 第一步：使用与搜索相同的API获取订单数据
-    // 准备查询参数 - 转换为与fetchOrders相同的格式
+    // Step 1: Use the same API as search to get order data
+    // Prepare query parameters - Convert to the same format as fetchOrders
     const searchParams = {
       type: options.orderType,
       paid: options.paymentStatus === 'paid' ? 'true' : 
             options.paymentStatus === 'unpaid' ? 'false' : undefined,
       completed: options.status === 'completed' ? 'true' : 
                 options.status === 'pending' ? 'false' : undefined,
-      customerId: customerId,  // 添加客户ID
+      customerId: customerId,  // Add customer ID
       orderNumber: options.orderNumber,
-      // 不设置分页限制，获取所有符合条件的订单
+      // No pagination limit, get all matching orders
       page: 1,
-      pageSize: 1000 // 使用一个足够大的值确保获取所有订单
+      pageSize: 1000 // Use a large enough value to ensure all orders are retrieved
     };
     
-    console.log('使用搜索API获取订单 - 参数:', searchParams);
+    console.log('Using search API to get orders - Parameters:', searchParams);
     
-    // 调用 /orders API 获取订单
+    // Call /orders API to get orders
     const ordersResponse = await instance.get('/orders', {
       params: searchParams
     });
     
-    // 检查搜索结果
+    // Check search results
     if (!ordersResponse.data.success) {
-      console.error('订单搜索失败:', ordersResponse.data);
-      return { success: false, message: '获取订单数据失败' };
+      console.error('Order search failed:', ordersResponse.data);
+      return { success: false, message: 'Failed to get order data' };
     }
     
     const searchResults = ordersResponse.data;
-    console.log(`搜索返回 ${searchResults.orders.length} 个订单`);
+    console.log(`Search returned ${searchResults.orders.length} orders`);
     
-    // 记录搜索到的订单ID
-    console.log('搜索返回的订单ID:', searchResults.orders.map(o => o.id));
+    // Log the order IDs returned by the search
+    console.log('Order IDs returned by search:', searchResults.orders.map(o => o.id));
     
-    // 如果没有找到订单，且不是主动要求导出所有订单，返回提示
+    // If no orders found and not explicitly requesting all orders, return suggestion
     if (searchResults.orders.length === 0 && options.includeAllOrders !== true) {
-      // 如果没有找到订单，尝试获取所有订单的数量
+      // If no orders found, try to get count of all orders
       const allOrdersResponse = await instance.get('/orders', {
         params: { customerId }
       });
@@ -148,112 +172,112 @@ export const generateCustomerOrdersPDF = async (customerId, options = {}) => {
           success: false,
           suggestExportAll: true,
           allOrdersCount: allOrdersResponse.data.orders.length,
-          message: '当前筛选条件下没有订单，要导出所有订单吗？'
+          message: 'No orders found with current filters. Would you like to export all orders?'
         };
       }
       
-      return { success: false, message: '没有找到任何订单' };
+      return { success: false, message: 'No orders found' };
     }
     
-    // 2. 第二步：构建PDF数据
-    // 准备导出PDF的参数
+    // Step 2: Build PDF data
+    // Prepare PDF export parameters
     const pdfParams = {
-      // 基本参数
+      // Basic parameters
       customerId,
       customerName: options.customerName,
-      // 将搜索结果转换为JSON字符串传递
+      // Convert search results to JSON string
       ordersData: JSON.stringify(searchResults.orders),
-      // 显示设置
+      // Display settings
       showUnpaid: options.showUnpaid === true ? 'true' : 'false',
       unpaidAmount: options.unpaidAmount,
-      // 记录筛选条件
+      // Record filter conditions
       orderType: options.orderType,
       orderNumber: options.orderNumber,
       status: options.status,
       paymentStatus: options.paymentStatus,
-      // 特殊标记 - 使用搜索API数据
+      // Special flag - Use search API data
       useSearchApiData: 'true'
     };
     
-    console.log('PDF导出 - 使用搜索API，参数:', {
+    console.log('PDF Export - Using search API, parameters:', {
       customerId,
       ordersCount: searchResults.orders.length,
       hasFilters: !!(options.orderType || options.orderNumber || 
                      options.status || options.paymentStatus)
     });
     
-    // 3. 第三步：请求生成PDF
-    // 发送请求，指定responseType为blob
+    // Step 3: Request PDF generation
+    // Send request, specify responseType as blob
     const response = await instance.get(`/customers/${customerId}/orders/pdf`, {
       params: pdfParams,
       responseType: 'blob'
     });
     
-    // 检查是否是JSON错误响应(服务器返回了JSON，不是PDF blob)
+    // Check if it's a JSON error response (server returned JSON, not PDF blob)
     const contentType = response.headers['content-type'];
-    console.log(`PDF响应类型: ${contentType}`);
+    console.log(`PDF response type: ${contentType}`);
     
     if (contentType && contentType.includes('application/json')) {
-      // 这是一个JSON响应，意味着有错误
-      console.log('收到JSON响应而非PDF，可能是错误或建议');
+      // This is a JSON response, meaning there's an error
+      console.log('Received JSON response instead of PDF, possibly an error or suggestion');
       const reader = new FileReader();
       return new Promise((resolve, reject) => {
         reader.onload = () => {
           try {
             const errorData = JSON.parse(reader.result);
-            console.log('JSON响应内容:', errorData);
+            console.log('JSON response content:', errorData);
             
-            // 如果是无订单的建议，返回建议
+            // If it's a suggestion for no orders, return the suggestion
             if (errorData.suggestExportAll) {
-              console.log(`后端建议导出所有订单，共 ${errorData.allOrdersCount} 个`);
+              console.log(`Backend suggests exporting all orders, total ${errorData.allOrdersCount}`);
               resolve({ 
                 success: false, 
                 suggestExportAll: true,
                 allOrdersCount: errorData.allOrdersCount,
-                message: errorData.msg || '当前筛选条件下没有订单，要导出所有订单吗？'
+                message: errorData.msg || 'No orders found with current filters. Would you like to export all orders?'
               });
             } else {
-              console.log('接收到其他错误:', errorData);
+              console.log('Received other error:', errorData);
               resolve({ 
                 success: false, 
-                message: errorData.msg || errorData.error || '导出PDF失败' 
+                message: errorData.msg || errorData.error || 'Failed to export PDF' 
               });
             }
           } catch (e) {
-            console.error('解析JSON响应失败:', e);
-            reject(new Error('解析错误响应失败'));
+            console.error('Failed to parse JSON response:', e);
+            reject(new Error('Failed to parse error response'));
           }
         };
-        reader.onerror = () => reject(new Error('读取错误响应失败'));
+        reader.onerror = () => reject(new Error('Failed to read error response'));
         reader.readAsText(response.data);
       });
     }
     
-    // 如果响应成功，触发下载
-    console.log('收到PDF响应，准备下载');
+    // If response successful, trigger download
+    console.log('Received PDF response, preparing download');
     const blob = new Blob([response.data], { type: 'application/pdf' });
-    console.log(`PDF大小: ${blob.size} 字节`);
+    console.log(`PDF size: ${blob.size} bytes`);
     
-    // 获取文件名
+    // Get filename
     const customerName = options.customerName || 'Customer';
     const date = new Date().toISOString().split('T')[0];
     const filename = `${customerName}_Orders_${date}.pdf`;
     
-    // 生成下载链接
+    // Generate download link
     const url = window.URL.createObjectURL(blob);
     
-    // 创建下载元素
+    // Create download element
     const link = document.createElement('a');
     link.href = url;
     link.download = filename;
     link.target = '_blank';
     
-    // 触发下载
+    // Trigger download
     document.body.appendChild(link);
     link.click();
-    console.log(`触发PDF下载: ${filename}`);
+    console.log(`Triggered PDF download: ${filename}`);
     
-    // 清理资源
+    // Clean up resources
     setTimeout(() => {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(link);
@@ -261,10 +285,10 @@ export const generateCustomerOrdersPDF = async (customerId, options = {}) => {
     
     return { success: true };
   } catch (error) {
-    console.error('生成客户订单PDF失败:', error);
+    console.error('Failed to generate customer orders PDF:', error);
     return { 
       success: false, 
-      message: error.response?.data?.msg || error.message || '导出PDF失败'
+      message: error.response?.data?.msg || error.message || 'Failed to export PDF'
     };
   }
 };

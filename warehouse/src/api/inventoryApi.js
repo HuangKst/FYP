@@ -21,6 +21,30 @@ export const fetchInventory = async (material, specification, lowStock = false, 
 };
 
 /**
+ * 获取所有库存数据，不使用分页
+ * 主要用于库存检查和订单创建，确保能获取到所有数据
+ * @param {string} material - 可选，按材料筛选
+ * @param {string} specification - 可选，按规格筛选
+ * @param {boolean} lowStock - 可选，是否只显示低库存项目
+ * @returns {Promise<Object>} 返回所有匹配的库存数据
+ */
+export const fetchAllInventory = async (material, specification, lowStock = false) => {
+  try {
+    const response = await instance.get(`/inventory/all`, {
+      params: {
+        material,
+        spec: specification,
+        lowStock: lowStock ? 'true' : undefined
+      },
+    });
+    console.log("✅ All inventory data received:", response.data);
+    return response.data;
+  } catch (error) {
+    return handleError(error, 'Failed to fetch all inventory')
+  }
+};
+
+/**
  * 获取所有材质列表
  * @returns {Promise<Object>} 返回材质数组
  */
@@ -32,7 +56,6 @@ export const fetchMaterials = async () => {
     return handleError(error, 'Failed to fetch materials')
   }
 };
-
 
 // 添加库存项
 export const addInventoryItem = async (material, specification, quantity, density) => {

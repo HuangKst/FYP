@@ -26,12 +26,12 @@ import { printElement, exportToPDF } from '../../utils/printUtils';
 const OrderPrintPreview = ({ order, open, onClose }) => {
   const printRef = useRef(null);
 
-  // 处理打印
+  // Handle print
   const handlePrint = () => {
     printElement('order-print-content');
   };
 
-  // 处理导出PDF
+  // Handle PDF export
   const handleExportPDF = () => {
     exportToPDF('order-print-content', `Order-${order?.order_number || 'export'}.pdf`);
   };

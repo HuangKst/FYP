@@ -4,24 +4,24 @@ import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import { exportPDF } from '../utils/pdfExporter';
 
 /**
- * 通用PDF导出按钮组件
- * @param {Object} props - 组件属性
- * @param {string} props.url - API端点URL
- * @param {Object} props.queryParams - 查询参数对象
- * @param {string} props.filename - 下载的文件名
- * @param {string} props.tooltip - 鼠标悬停提示
- * @param {Function} props.onExportStart - 导出开始回调
- * @param {Function} props.onExportSuccess - 导出成功回调
- * @param {Function} props.onExportError - 导出错误回调
- * @param {Function} props.onExportComplete - 导出完成回调
- * @param {boolean} props.disabled - 是否禁用按钮
- * @param {Object} props.buttonProps - 传递给Button组件的其他属性
+ * Generic PDF Export Button Component
+ * @param {Object} props - Component properties
+ * @param {string} props.url - API endpoint URL
+ * @param {Object} props.queryParams - Query parameters object
+ * @param {string} props.filename - Downloaded filename
+ * @param {string} props.tooltip - Mouse hover tooltip
+ * @param {Function} props.onExportStart - Export start callback
+ * @param {Function} props.onExportSuccess - Export success callback
+ * @param {Function} props.onExportError - Export error callback
+ * @param {Function} props.onExportComplete - Export complete callback
+ * @param {boolean} props.disabled - Whether button is disabled
+ * @param {Object} props.buttonProps - Other properties passed to Button component
  */
 const PdfExportButton = ({
   url,
   queryParams = {},
   filename = 'export.pdf',
-  tooltip = '导出PDF',
+  tooltip = 'Export PDF',
   onExportStart,
   onExportSuccess,
   onExportError,
@@ -37,7 +37,7 @@ const PdfExportButton = ({
     severity: 'info'
   });
 
-  // 显示通知消息
+  // Show notification message
   const showSnackbar = (message, severity = 'info') => {
     setSnackbar({
       open: true,
@@ -46,38 +46,38 @@ const PdfExportButton = ({
     });
   };
 
-  // 关闭通知消息
+  // Close notification message
   const handleCloseSnackbar = () => {
     setSnackbar({ ...snackbar, open: false });
   };
 
-  // 处理导出点击
+  // Handle export click
   const handleExport = () => {
     if (exporting) return;
     
     setExporting(true);
     if (onExportStart) onExportStart();
     
-    // 显示开始导出提示
-    showSnackbar('正在生成PDF，请稍候...', 'info');
+    // Show export start notification
+    showSnackbar('Generating PDF, please wait...', 'info');
     
-    // 调用PDF导出工具
+    // Call PDF export utility
     exportPDF(
       url,
       queryParams,
       filename,
-      // 成功回调
+      // Success callback
       () => {
-        showSnackbar('PDF已生成，开始下载', 'success');
+        showSnackbar('PDF generated, download started', 'success');
         if (onExportSuccess) onExportSuccess();
       },
-      // 错误回调
+      // Error callback
       (error) => {
-        console.error('PDF导出失败:', error);
-        showSnackbar(`PDF导出失败: ${error.message || '未知错误'}`, 'error');
+        console.error('PDF export failed:', error);
+        showSnackbar(`PDF export failed: ${error.message || 'Unknown error'}`, 'error');
         if (onExportError) onExportError(error);
       },
-      // 完成回调
+      // Complete callback
       () => {
         setExporting(false);
         if (onExportComplete) onExportComplete();
@@ -97,7 +97,7 @@ const PdfExportButton = ({
             disabled={disabled || exporting}
             {...buttonProps}
           >
-            {children || (exporting ? '导出中...' : '导出PDF')}
+            {children || (exporting ? 'Exporting...' : 'Export PDF')}
           </Button>
         </span>
       </Tooltip>

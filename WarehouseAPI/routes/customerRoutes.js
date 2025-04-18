@@ -424,4 +424,289 @@ router.get('/:id/orders/pdf', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/customers/:id/orders/all
+ * 获取指定客户的所有订单，不使用分页 - 主要用于PDF导出
+ */
+router.get('/:id/orders/all', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { orderType, isPaid, isCompleted, orderNumber } = req.query;
+    
+    // 构建查询条件
+    const where = { customer_id: id };
+    
+    // 添加订单类型筛选
+    if (orderType) {
+      where.order_type = orderType;
+    }
+    
+    // 添加付款状态筛选
+    if (isPaid === 'true') {
+      where.is_paid = true;
+    } else if (isPaid === 'false') {
+      where.is_paid = false;
+    }
+    
+    // 添加完成状态筛选
+    if (isCompleted === 'true') {
+      where.is_completed = true;
+    } else if (isCompleted === 'false') {
+      where.is_completed = false;
+    }
+    
+    // 添加订单号筛选
+    if (orderNumber) {
+      where.order_number = { [Op.like]: `%${orderNumber}%` };
+    }
+    
+    // 获取所有匹配的订单，不使用分页
+    const orders = await Order.findAll({
+      where,
+      include: [
+        {
+          model: Customer,
+          attributes: ['id', 'name', 'phone', 'address']
+        },
+        {
+          model: OrderItem,
+          as: 'order_items'
+        }
+      ],
+      order: [['created_at', 'DESC']]
+    });
+    
+    res.json({
+      success: true,
+      orders,
+      total: orders.length
+    });
+  } catch (err) {
+    console.error('Error fetching all customer orders:', err);
+    res.status(500).json({ success: false, msg: 'Failed to fetch all customer orders' });
+  }
+});
+
+/**
+ * GET /api/customers/:id/orders/pdf
+ * 导出客户订单为PDF
+ */
+router.get('/:id/orders/pdf', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { 
+      customerName, 
+      includeAllOrders, 
+      orderType, 
+      orderNumber, 
+      status, 
+      paymentStatus, 
+      unpaidAmount,
+      showUnpaid
+    } = req.query;
+    
+    // 查询客户
+    const customer = await Customer.findByPk(id);
+    if (!customer) {
+      return res.status(404).json({ success: false, msg: 'Customer not found' });
+    }
+    
+    // 构建查询条件
+    const where = { customer_id: id };
+    
+    // 添加订单类型筛选
+    if (orderType) {
+      where.order_type = orderType;
+    }
+    
+    // 添加订单号筛选
+    if (orderNumber) {
+      where.order_number = { [Op.like]: `%${orderNumber}%` };
+    }
+    
+    // 添加状态筛选
+    if (status === 'completed') {
+      where.is_completed = true;
+    } else if (status === 'pending') {
+      where.is_completed = false;
+    }
+    
+    // 添加付款状态筛选
+    if (paymentStatus === 'paid') {
+      where.is_paid = true;
+    } else if (paymentStatus === 'unpaid') {
+      where.is_paid = false;
+    }
+    
+    // 使用不带分页的API获取所有订单
+    const ordersResult = await Order.findAll({
+      where,
+      include: [
+        {
+          model: OrderItem,
+          as: 'order_items'
+        }
+      ],
+      order: [['created_at', 'DESC']]
+    });
+    
+    if (ordersResult.length === 0 && !includeAllOrders) {
+      // 如果没有匹配筛选的订单，可以提供一个建议去导出所有订单
+      const allOrdersCount = await Order.count({ where: { customer_id: id }});
+      
+      return res.json({
+        success: false,
+        suggestExportAll: true,
+        message: 'No orders match the filters. Would you like to export all orders?',
+        allOrdersCount
+      });
+    }
+    
+    // 如果请求所有订单但当前筛选没有匹配结果，重新查询所有订单
+    const orders = (ordersResult.length === 0 && includeAllOrders) ? 
+      await Order.findAll({
+        where: { customer_id: id },
+        include: [
+          {
+            model: OrderItem,
+            as: 'order_items'
+          }
+        ],
+        order: [['created_at', 'DESC']]
+      }) : 
+      ordersResult;
+    
+    // 创建一个新的PDF文档
+    const doc = new PDFDocument();
+    
+    // 设置响应头
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=customer-${id}-orders.pdf`);
+    
+    // 将PDF流式传输到响应
+    doc.pipe(res);
+    
+    // PDF标题和客户信息
+    doc.fontSize(22).text(`Customer Order Report`, { align: 'center' });
+    doc.moveDown();
+    
+    doc.fontSize(16).text(`${customerName || customer.name}`, { align: 'center' });
+    doc.moveDown();
+    
+    // 客户详细信息
+    doc.fontSize(12).text(`Phone: ${customer.phone || 'N/A'}`);
+    doc.fontSize(12).text(`Address: ${customer.address || 'N/A'}`);
+    
+    // 筛选条件
+    doc.moveDown();
+    doc.fontSize(12).text('Filter Criteria:', { underline: true });
+    
+    let hasFilters = false;
+    
+    if (orderType) {
+      doc.text(`Order Type: ${orderType}`);
+      hasFilters = true;
+    }
+    
+    if (orderNumber) {
+      doc.text(`Order Number: ${orderNumber}`);
+      hasFilters = true;
+    }
+    
+    if (status) {
+      doc.text(`Order Status: ${status}`);
+      hasFilters = true;
+    }
+    
+    if (paymentStatus) {
+      doc.text(`Payment Status: ${paymentStatus}`);
+      hasFilters = true;
+    }
+    
+    if (!hasFilters) {
+      doc.text('No filters applied (all orders)');
+    }
+    
+    // 显示欠款金额
+    if (showUnpaid === 'true' && unpaidAmount) {
+      doc.moveDown();
+      doc.fontSize(14).text(`Total Unpaid Amount: ¥${parseFloat(unpaidAmount).toFixed(2)}`, { color: 'red' });
+    }
+    
+    // 计算订单总额
+    const totalAmount = orders.reduce((sum, order) => sum + parseFloat(order.total_price || 0), 0).toFixed(2);
+    doc.fontSize(14).text(`Orders Total: ¥${totalAmount}`);
+    
+    // 显示订单总数
+    doc.fontSize(12).text(`Total Orders: ${orders.length}`);
+    doc.moveDown();
+    
+    // 创建订单表格
+    doc.fontSize(14).text('Orders', { underline: true });
+    doc.moveDown();
+    
+    // 绘制订单表格
+    const orderTableTop = doc.y;
+    const tableLeft = 50;
+    const colWidths = [120, 80, 80, 80, 120];
+    const tableHeaders = ['Order Number', 'Date', 'Type', 'Amount', 'Status'];
+    
+    // 绘制表头
+    doc.font('Helvetica-Bold');
+    tableHeaders.forEach((header, i) => {
+      let x = tableLeft;
+      for (let j = 0; j < i; j++) {
+        x += colWidths[j];
+      }
+      doc.text(header, x, orderTableTop);
+    });
+    doc.moveDown();
+    
+    // 绘制订单数据
+    doc.font('Helvetica');
+    orders.forEach(order => {
+      const y = doc.y;
+      
+      // 订单号
+      doc.text(order.order_number, tableLeft, y);
+      
+      // 日期
+      doc.text(new Date(order.created_at).toLocaleDateString(), tableLeft + colWidths[0], y);
+      
+      // 类型
+      doc.text(order.order_type, tableLeft + colWidths[0] + colWidths[1], y);
+      
+      // 金额
+      doc.text(`¥${parseFloat(order.total_price || 0).toFixed(2)}`, 
+              tableLeft + colWidths[0] + colWidths[1] + colWidths[2], y);
+      
+      // 状态
+      let status = '';
+      if (order.order_type === 'SALES') {
+        status = order.is_paid ? 'Paid' : 'Unpaid';
+        status += order.is_completed ? ', Completed' : ', Pending';
+      } else {
+        status = 'Quote';
+      }
+      
+      doc.text(status, 
+              tableLeft + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3], y);
+      
+      doc.moveDown();
+    });
+    
+    // 如果没有订单
+    if (orders.length === 0) {
+      doc.text('No orders found.', tableLeft, doc.y);
+    }
+    
+    // 完成PDF
+    doc.end();
+    
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, msg: 'Failed to generate PDF' });
+  }
+});
+
 export default router;
