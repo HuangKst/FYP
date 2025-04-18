@@ -18,12 +18,20 @@ import {
     Alert,
     Button,
     Box,
-    Container
+    Container,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogContentText,
+    DialogTitle,
+    Snackbar
 } from '@mui/material';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { fetchOrderDetail, updateOrderStatus, deleteOrder } from '../../api/orderApi';
 import PrintIcon from '@mui/icons-material/Print';
 import OrderPrintPreview from '../OrderPrintPreview';
+import PdfExportButton from '../PdfExportButton';
+import { BASE_URL } from '../../config';
 
 // 从localStorage获取当前用户信息
 const getCurrentUser = () => {
@@ -64,6 +72,11 @@ const OrderDetail = () => {
     const [deleteConfirm, setDeleteConfirm] = useState(false);
     const [error, setError] = useState('');
     const [printPreviewOpen, setPrintPreviewOpen] = useState(false);
+    const [convertToSalesDialogOpen, setConvertToSalesDialogOpen] = useState(false);
+    const [convertingToSales, setConvertingToSales] = useState(false);
+    const [snackbarOpen, setSnackbarOpen] = useState(false);
+    const [snackbarMessage, setSnackbarMessage] = useState('');
+    const [snackbarSeverity, setSnackbarSeverity] = useState('success');
     
     // 获取当前用户
     const currentUser = getCurrentUser();
@@ -95,6 +108,18 @@ const OrderDetail = () => {
     // 处理返回按钮点击
     const handleBackClick = () => {
         navigate(getNavigationTarget());
+    };
+
+    // 显示提示消息
+    const showSnackbar = (message, severity = 'success') => {
+        setSnackbarMessage(message);
+        setSnackbarSeverity(severity);
+        setSnackbarOpen(true);
+    };
+
+    // 关闭提示消息
+    const handleCloseSnackbar = () => {
+        setSnackbarOpen(false);
     };
 
     // 加载订单详情
@@ -143,7 +168,7 @@ const OrderDetail = () => {
         
         // 检查权限
         if (!canEdit) {
-            setError('您没有权限编辑订单。只有管理员或老板才能执行此操作。');
+            setError('You do not have permission to edit this order. Only administrators or managers can perform this action.');
             return;
         }
         
@@ -162,12 +187,57 @@ const OrderDetail = () => {
                     setOrder(updatedResponse.order);
                 }
                 setError('');
+                showSnackbar('Order status updated successfully', 'success');
             }
         } catch (error) {
             console.error('Error updating order status:', error);
-            setError('更新订单状态时发生错误');
+            setError('An error occurred while updating the order status');
+            showSnackbar('Failed to update order status', 'error');
         } finally {
             setUpdating(false);
+        }
+    };
+
+    // 报价单转换为销售单
+    const handleConvertToSalesOrder = async () => {
+        if (!order || order.order_type !== 'QUOTE') return;
+        
+        // 检查权限
+        if (!canEdit) {
+            setError('You do not have permission to convert this order. Only administrators or managers can perform this action.');
+            return;
+        }
+        
+        setConvertingToSales(true);
+        try {
+            // 将报价单转换为销售单，保持其他字段不变
+            const response = await updateOrderStatus(orderId, {
+                order_type: 'SALES',
+                is_paid: 0,  // 默认为未付款
+                is_completed: 0,  // 默认为未完成
+                remark: remark || order.remark
+            });
+            
+            if (response.success) {
+                showSnackbar('Quote successfully converted to sales order', 'success');
+                
+                // 刷新订单数据
+                const updatedResponse = await fetchOrderDetail(orderId);
+                if (updatedResponse.success) {
+                    setOrder(updatedResponse.order);
+                    // 更新本地状态
+                    setIsPaid(false);
+                    setIsCompleted(false);
+                }
+                setError('');
+            }
+        } catch (error) {
+            console.error('Error converting to sales order:', error);
+            setError('An error occurred while converting to sales order');
+            showSnackbar('Failed to convert to sales order', 'error');
+        } finally {
+            setConvertingToSales(false);
+            setConvertToSalesDialogOpen(false);
         }
     };
 
@@ -177,7 +247,7 @@ const OrderDetail = () => {
         
         // 再次检查权限
         if (!canDelete) {
-            setError('您没有权限删除订单。只有管理员才能执行此操作。');
+            setError('You do not have permission to delete this order. Only administrators can perform this action.');
             setDeleteConfirm(false);
             return;
         }
@@ -188,13 +258,16 @@ const OrderDetail = () => {
             const response = await deleteOrder(orderId);
             if (response.success) {
                 // 返回到订单列表页
+                showSnackbar('Order deleted successfully', 'success');
                 navigate(getNavigationTarget());
             } else {
-                setError(response.msg || '删除订单失败');
+                setError(response.msg || 'Failed to delete order');
+                showSnackbar('Failed to delete order', 'error');
             }
         } catch (error) {
             console.error('Error deleting order:', error);
-            setError('删除订单时发生错误');
+            setError('An error occurred while deleting the order');
+            showSnackbar('Failed to delete order', 'error');
         } finally {
             setUpdating(false);
             setDeleteConfirm(false);
@@ -235,6 +308,14 @@ const OrderDetail = () => {
                         >
                             Print
                         </Button>
+                        <PdfExportButton
+                            url={`${BASE_URL}/orders/${orderId}/pdf`}
+                            filename={`order-${order?.order_number || orderId}.pdf`}
+                            disabled={loading || !order}
+                            buttonProps={{ variant: "outlined" }}
+                        >
+                            Export PDF
+                        </PdfExportButton>
                         <Button variant="outlined" onClick={handleBackClick}>
                             Back
                         </Button>
@@ -447,6 +528,18 @@ const OrderDetail = () => {
                                             Edit Order
                                         </Button>
                                     )}
+                                    {/* 报价单转销售单按钮 */}
+                                    {order && order.order_type === 'QUOTE' && canEdit && (
+                                        <Button 
+                                            onClick={() => setConvertToSalesDialogOpen(true)} 
+                                            color="warning" 
+                                            variant="contained"
+                                            disabled={updating || loading}
+                                            sx={{ mr: 1 }}
+                                        >
+                                            Convert to Sales Order
+                                        </Button>
+                                    )}
                                     {order && order.order_type === 'SALES' && canEdit && (
                                         <Button 
                                             onClick={handleUpdateStatus} 
@@ -472,6 +565,47 @@ const OrderDetail = () => {
                     onClose={handleClosePrintPreview} 
                 />
             )}
+
+            {/* 报价单转销售单确认对话框 */}
+            <Dialog
+                open={convertToSalesDialogOpen}
+                onClose={() => setConvertToSalesDialogOpen(false)}
+                aria-labelledby="convert-dialog-title"
+                aria-describedby="convert-dialog-description"
+            >
+                <DialogTitle id="convert-dialog-title">
+                    Convert to Sales Order
+                </DialogTitle>
+                <DialogContent>
+                    <DialogContentText id="convert-dialog-description">
+                        Are you sure you want to convert this quote to a sales order? This operation will affect inventory and customer debt, and cannot be undone.
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setConvertToSalesDialogOpen(false)} disabled={convertingToSales}>
+                        Cancel
+                    </Button>
+                    <Button onClick={handleConvertToSalesOrder} color="warning" disabled={convertingToSales}>
+                        {convertingToSales ? 'Converting...' : 'Confirm Conversion'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* 全局提示消息 */}
+            <Snackbar
+                open={snackbarOpen}
+                autoHideDuration={6000}
+                onClose={handleCloseSnackbar}
+                anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+            >
+                <Alert 
+                    onClose={handleCloseSnackbar} 
+                    severity={snackbarSeverity} 
+                    sx={{ width: '100%' }}
+                >
+                    {snackbarMessage}
+                </Alert>
+            </Snackbar>
         </Container>
     );
 };

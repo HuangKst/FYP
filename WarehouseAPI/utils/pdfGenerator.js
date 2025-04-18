@@ -1,6 +1,6 @@
 import puppeteer from 'puppeteer';
 import { generateOvertimeTemplate } from '../templates/employeeOvertimePDFTemplate.js';
-import { generateLeaveTemplate } from '../templates/employeeLeaveimePDFTemplate.js';
+import { generateLeaveTemplate } from '../templates/employeeLeavePDFTemplate.js';
 import { generateOrderTemplate } from '../templates/orderPDFTemplate.js';
 import { generateCustomerOrdersTemplate } from '../templates/orderByCustomerPDFTemplate.js';
 
@@ -127,29 +127,32 @@ export async function generatePDF(data, type) {
  * Send generated PDF to client
  * 
  * @param {Object} res - Express response object
- * @param {Buffer} pdfBuffer - PDF file buffer
+ * @param {Buffer|Uint8Array} pdfBuffer - PDF file buffer or Uint8Array
  * @param {string} filename - Download filename
  */
 export function sendPDFResponse(res, pdfBuffer, filename) {
-  // 确保Buffer有效
-  if (!pdfBuffer || !Buffer.isBuffer(pdfBuffer) || pdfBuffer.length === 0) {
+  // 确保Buffer有效 - 支持Buffer和Uint8Array
+  if (!pdfBuffer || pdfBuffer.length === 0) {
     console.error('无效的PDF缓冲区', pdfBuffer);
     res.status(500).json({ success: false, msg: '生成的PDF无效' });
     return;
   }
   
-  console.log(`发送PDF响应: ${filename}, 大小: ${pdfBuffer.length} 字节`);
+  // 如果是Uint8Array但不是Buffer，转换为Buffer
+  const buffer = Buffer.isBuffer(pdfBuffer) ? pdfBuffer : Buffer.from(pdfBuffer);
+  
+  console.log(`发送PDF响应: ${filename}, 大小: ${buffer.length} 字节`);
   
   // 设置响应头和发送PDF
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
-  res.setHeader('Content-Length', pdfBuffer.length);
+  res.setHeader('Content-Length', buffer.length);
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
   
   // 发送PDF数据
-  res.end(pdfBuffer, 'binary');
+  res.end(buffer, 'binary');
 }
 
 /**

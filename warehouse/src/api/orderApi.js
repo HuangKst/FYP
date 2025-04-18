@@ -46,12 +46,13 @@ export const fetchOrderDetail = async (orderId) => {
 // 更新订单状态
 export const updateOrderStatus = async (orderId, statusData) => {
   try {
-    // 确保数据格式正确
-    const { is_paid, is_completed, remark } = statusData;
+    // 确保数据格式正确，支持order_type字段用于报价单转销售单
+    const { is_paid, is_completed, remark, order_type } = statusData;
     const response = await instance.put(`/orders/${orderId}`, {
       is_paid,
       is_completed,
-      remark
+      remark,
+      order_type  // 新增字段，用于支持报价单转换为销售单
     });
     return response.data;
   } catch (error) {

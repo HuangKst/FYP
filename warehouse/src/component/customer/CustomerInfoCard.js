@@ -21,14 +21,14 @@ const CustomerInfoCard = ({ customer }) => {
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
               <PhoneIcon sx={{ mr: 2, color: 'text.secondary' }} />
               <Typography variant="body1">
-                {customer.phone || '未设置电话'}
+                {customer.phone || 'No phone number'}
               </Typography>
             </Box>
             
             <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
               <LocationOnIcon sx={{ mr: 2, color: 'text.secondary', mt: 0.5 }} />
               <Typography variant="body1">
-                {customer.address || '未设置地址'}
+                {customer.address || 'No address'}
               </Typography>
             </Box>
           </Grid>
@@ -37,18 +37,14 @@ const CustomerInfoCard = ({ customer }) => {
             <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
               <NoteIcon sx={{ mr: 2, color: 'text.secondary', mt: 0.5 }} />
               <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
-                {customer.remark || '无备注'}
+                {customer.remark || 'No remarks'}
               </Typography>
             </Box>
 
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
               <AccountBalanceIcon sx={{ mr: 2, color: 'error.main' }} />
               <Typography variant="body1" color="error.main" sx={{ fontWeight: 'bold' }}>
-                总欠款金额: {parseFloat(customer.total_debt || 0).toLocaleString('zh-CN', {
-                  style: 'currency',
-                  currency: 'CNY',
-                  minimumFractionDigits: 2
-                })}
+                Total Debt: ¥{parseFloat(customer.total_debt || 0).toFixed(2)}
               </Typography>
             </Box>
           </Grid>

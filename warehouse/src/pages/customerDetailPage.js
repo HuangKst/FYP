@@ -38,6 +38,7 @@ import { getCustomerById, getCustomerOrders, generateCustomerOrdersPDF } from '.
 import { fetchOrders } from '../api/orderApi';
 import OrderNumberSearch from '../component/button/searchButtonByOrderID';
 import Pagination from '../component/Pagination';
+import PdfExportButton from '../component/PdfExportButton';
 import instance from '../api/axios';  // 导入正确的axios实例
 import { BASE_URL } from '../config';
 
@@ -347,22 +348,8 @@ const CustomerDetailPage = () => {
     
     setExportingPdf(true);
     
-    // 显示消息
-    const messageElement = document.createElement('div');
-    messageElement.className = 'pdf-export-message';
-    messageElement.style.cssText = `
-      position: fixed;
-      top: 80px;
-      right: 20px;
-      background-color: #2196f3;
-      color: white;
-      padding: 10px 20px;
-      border-radius: 4px;
-      z-index: 9999;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-    `;
-    messageElement.textContent = '正在准备PDF下载...';
-    document.body.appendChild(messageElement);
+    // 使用Snackbar显示加载状态
+    setError('Generating PDF, please wait...');
     
     // 获取当前订单号搜索值
     const currentOrderNumber = window.orderNumberSearchComponent?.getOrderNumber() || '';
@@ -374,7 +361,7 @@ const CustomerDetailPage = () => {
     const hasFilteredOrders = filteredOrders && filteredOrders.length > 0;
     
     // 记录当前状态
-    console.log('导出PDF前状态:', {
+    console.log('Export PDF status:', {
       orderType,
       currentOrderNumber,
       isCompleted,
@@ -413,7 +400,7 @@ const CustomerDetailPage = () => {
     };
     
     // 记录导出信息
-    console.log('导出PDF - 详细参数:', { 
+    console.log('Export PDF details:', { 
       customerId,
       exportOptions,
       shouldIncludeAllOrders,
@@ -428,84 +415,25 @@ const CustomerDetailPage = () => {
       .then(result => {
         if (result.success) {
           // 更新为成功消息
-          messageElement.style.backgroundColor = '#4caf50';
-          messageElement.textContent = 'PDF下载已完成，请检查浏览器下载';
+          setError('PDF has been generated and download started');
         } else if (result.suggestExportAll) {
           // 如果建议导出所有订单
-          messageElement.style.backgroundColor = '#ff9800';
-          messageElement.textContent = `当前筛选条件下没有订单。客户共有 ${result.allOrdersCount} 个订单，是否导出全部？`;
+          setError(`No orders found with current filters. Customer has ${result.allOrdersCount} orders in total. Exporting all orders.`);
           
-          // 添加确认和取消按钮
-          const buttonContainer = document.createElement('div');
-          buttonContainer.style.cssText = `
-            display: flex;
-            justify-content: flex-end;
-            margin-top: 10px;
-            gap: 10px;
-          `;
-          
-          const confirmButton = document.createElement('button');
-          confirmButton.textContent = '导出所有订单';
-          confirmButton.style.cssText = `
-            background-color: #4caf50;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 4px;
-            cursor: pointer;
-          `;
-          
-          const cancelButton = document.createElement('button');
-          cancelButton.textContent = '取消';
-          cancelButton.style.cssText = `
-            background-color: #f44336;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 4px;
-            cursor: pointer;
-          `;
-          
-          // 添加点击事件
-          confirmButton.onclick = () => {
-            document.body.removeChild(messageElement);
-            setExportingPdf(false);
-            // 导出所有订单
-            handleExportPdf(true);
-          };
-          
-          cancelButton.onclick = () => {
-            document.body.removeChild(messageElement);
-            setExportingPdf(false);
-          };
-          
-          buttonContainer.appendChild(confirmButton);
-          buttonContainer.appendChild(cancelButton);
-          messageElement.appendChild(buttonContainer);
-          
-          // 不自动关闭消息
-          return;
+          // TODO: 这里改为使用对话框确认是否导出全部
+          // 暂时保持简单，直接导出全部
+          setExportingPdf(false);
+          handleExportPdf(true);
         } else {
-          throw new Error(result.message || '导出失败');
+          throw new Error(result.message || 'Export failed');
         }
       })
       .catch(error => {
-        console.error('导出PDF失败:', error);
-        messageElement.style.backgroundColor = '#f44336';
-        messageElement.textContent = `导出PDF失败: ${error.message || '未知错误'}`;
+        console.error('Failed to export PDF:', error);
+        setError(`PDF export failed: ${error.message || 'Unknown error'}`);
       })
       .finally(() => {
-        // 如果不是建议导出所有订单的情况，才自动关闭消息
-        if (!messageElement.contains(document.querySelector('button'))) {
-          setExportingPdf(false);
-          
-          // 几秒后移除消息
-          setTimeout(() => {
-            if (document.body.contains(messageElement)) {
-              document.body.removeChild(messageElement);
-            }
-          }, 5000);
-        }
+        setExportingPdf(false);
       });
   };
 
@@ -616,20 +544,28 @@ const CustomerDetailPage = () => {
               {/* 显示总欠款 */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <Chip 
-                  label={`未付款总额: ¥${(customer?.total_debt || 0).toLocaleString()}`}
+                  label={`Total Debt: ¥${parseFloat(customer?.total_debt || 0).toFixed(2)}`}
                   color="error"
                   variant="outlined"
                   sx={{ fontWeight: 'bold' }}
                 />
-                <Button
-                  variant="contained"
-                  color="primary"
-                  startIcon={<PictureAsPdfIcon />}
-                  onClick={() => handleExportPdf()}
-                  disabled={exportingPdf || orders.length === 0}
-                >
-                  {exportingPdf ? '导出中...' : '导出PDF'}
-                </Button>
+                <PdfExportButton
+                  url={`${BASE_URL}/customers/${customerId}/orders/pdf`}
+                  queryParams={{
+                    customerName: customer.name,
+                    includeAllOrders: true,
+                    orderType: orderType || undefined,
+                    orderNumber: window.orderNumberSearchComponent?.getOrderNumber() || undefined,
+                    status: isCompleted === true ? 'completed' : 
+                          isCompleted === false ? 'pending' : undefined,
+                    paymentStatus: isPaid === true ? 'paid' : 
+                                  isPaid === false ? 'unpaid' : undefined,
+                    unpaidAmount: totalCustomerDebt,
+                    showUnpaid: true
+                  }}
+                  filename={`customer-${customer.name.replace(/\s+/g, '_')}-orders.pdf`}
+                  disabled={orders.length === 0}
+                />
               </Box>
             </Box>
             
@@ -785,7 +721,7 @@ const CustomerDetailPage = () => {
                         <TableCell>
                           {order.type === 'QUOTE' ? 'Quote' : 'Sales Order'}
                         </TableCell>
-                        <TableCell>¥{(order.total || 0).toLocaleString()}</TableCell>
+                        <TableCell>¥{parseFloat(order.total || 0).toFixed(2)}</TableCell>
                         <TableCell>
                           <OrderStatusChip 
                             type={order.type === 'QUOTE' ? 'quote' : 'sale'} 

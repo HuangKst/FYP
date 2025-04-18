@@ -208,14 +208,6 @@ const OrderPrintPreview = ({ order, open, onClose }) => {
         <Button onClick={onClose}>Close</Button>
         <Box sx={{ flexGrow: 1 }} />
         <Button 
-          variant="outlined" 
-          startIcon={<PictureAsPdfIcon />}
-          onClick={handleExportPDF}
-          sx={{ mr: 1 }}
-        >
-          Export PDF
-        </Button>
-        <Button 
           variant="contained" 
           startIcon={<PrintIcon />}
           onClick={handlePrint}

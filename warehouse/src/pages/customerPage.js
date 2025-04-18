@@ -207,11 +207,7 @@ const CustomerPage = () => {
                           <TableCell>{customer.phone}</TableCell>
                           <TableCell>{customer.address}</TableCell>
                           <TableCell>
-                            {parseFloat(customer.total_debt || 0).toLocaleString('zh-CN', {
-                              style: 'currency',
-                              currency: 'CNY',
-                              minimumFractionDigits: 2
-                            })}
+                            ¥{parseFloat(customer.total_debt || 0).toFixed(2)}
                           </TableCell>
                           <TableCell>
                             <Box sx={{ display: 'flex', gap: 1 }}>

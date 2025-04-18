@@ -40,6 +40,8 @@ import {
   getAllEmployees,
 } from '../api/employeeApi';
 import Pagination from '../component/Pagination';
+import PdfExportButton from '../component/PdfExportButton';
+import { BASE_URL } from '../config';
 
 // 获取环境变量中的API基础URL，如果未定义则使用默认值
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8080/api';
@@ -427,103 +429,6 @@ const EmployeeDetailPage = () => {
     }
   };
 
-  // 处理导出PDF
-  const handleExportOvertimePDF = () => {
-    // 显示加载状态通知
-    showSnackbar('正在生成PDF，请稍候...', 'info');
-    
-    // 获取认证令牌
-    const token = localStorage.getItem('token');
-    
-    // 构建URL，包含筛选条件
-    let url = `${API_BASE_URL}/employee-overtimes/employee/${id}/pdf`;
-    
-    // 添加日期筛选参数
-    if (overtimeFilter.startDate && overtimeFilter.endDate) {
-      url += `?startDate=${overtimeFilter.startDate}&endDate=${overtimeFilter.endDate}`;
-    }
-    
-    // 使用fetch发送带认证的请求
-    fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    })
-    .then(response => {
-      if (!response.ok) {
-        throw new Error('PDF导出失败');
-      }
-      return response.blob();
-    })
-    .then(blob => {
-      // 创建临时URL并触发下载
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = url;
-      a.download = `employee-${id}-overtime.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      
-      // 显示成功消息
-      showSnackbar('PDF已生成并开始下载', 'success');
-    })
-    .catch(err => {
-      console.error('PDF导出失败:', err);
-      showSnackbar('导出PDF失败: ' + err.message, 'error');
-    });
-  };
-
-  const handleExportLeavePDF = () => {
-    // 显示加载状态通知
-    showSnackbar('正在生成PDF，请稍候...', 'info');
-    
-    // 获取认证令牌
-    const token = localStorage.getItem('token');
-    
-    // 构建URL，包含筛选条件
-    let url = `${API_BASE_URL}/employee-leaves/employee/${id}/pdf`;
-    
-    // 添加日期筛选参数
-    if (leaveFilter.startDate && leaveFilter.endDate) {
-      url += `?startDate=${leaveFilter.startDate}&endDate=${leaveFilter.endDate}`;
-    }
-    
-    // 使用fetch发送带认证的请求
-    fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    })
-    .then(response => {
-      if (!response.ok) {
-        throw new Error('PDF导出失败');
-      }
-      return response.blob();
-    })
-    .then(blob => {
-      // 创建临时URL并触发下载
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = url;
-      a.download = `employee-${id}-leave.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      
-      // 显示成功消息
-      showSnackbar('PDF已生成并开始下载', 'success');
-    })
-    .catch(err => {
-      console.error('PDF导出失败:', err);
-      showSnackbar('导出PDF失败: ' + err.message, 'error');
-    });
-  };
-
   return (
     <Container>
       <Box sx={{ mt: 4, mb: 4 }}>
@@ -586,15 +491,17 @@ const EmployeeDetailPage = () => {
                   >
                     Add Overtime
                   </Button>
-                  <Tooltip title="Export to PDF">
-                    <Button 
-                      variant="outlined" 
-                      onClick={handleExportOvertimePDF}
-                      startIcon={<PictureAsPdfIcon />}
-                    >
-                      Export
-                    </Button>
-                  </Tooltip>
+                  <PdfExportButton
+                    url={`${BASE_URL}/employee-overtimes/employee/${id}/pdf`}
+                    queryParams={{
+                      startDate: overtimeFilter.startDate,
+                      endDate: overtimeFilter.endDate
+                    }}
+                    filename={`employee-${id}-overtime.pdf`}
+                    buttonProps={{ variant: "outlined" }}
+                  >
+                    Export PDF
+                  </PdfExportButton>
                 </Box>
               </Box>
               
@@ -695,15 +602,17 @@ const EmployeeDetailPage = () => {
                   >
                     Add Leave
                   </Button>
-                  <Tooltip title="Export to PDF">
-                    <Button 
-                      variant="outlined" 
-                      onClick={handleExportLeavePDF}
-                      startIcon={<PictureAsPdfIcon />}
-                    >
-                      Export
-                    </Button>
-                  </Tooltip>
+                  <PdfExportButton
+                    url={`${BASE_URL}/employee-leaves/employee/${id}/pdf`}
+                    queryParams={{
+                      startDate: leaveFilter.startDate,
+                      endDate: leaveFilter.endDate
+                    }}
+                    filename={`employee-${id}-leave.pdf`}
+                    buttonProps={{ variant: "outlined" }}
+                  >
+                    Export PDF
+                  </PdfExportButton>
                 </Box>
               </Box>
 

@@ -28,6 +28,9 @@ app.use('/api/users', usersRouter); // 如果部分路由不需要认证，可�
 
 // 添加PDF下载路由特例 - 不需要认证
 app.get('/api/orders/:id/pdf', orderRoutes);
+// 添加员工请假和加班记录PDF下载特例 - 不需要认证
+app.get('/api/employee-leaves/employee/:id/pdf', employeeLeaveRoutes);
+app.get('/api/employee-overtimes/employee/:id/pdf', employeeOvertimeRoutes);
 
 // 其他routes需要认证
 app.use('/api/admin', authenticate, adminAuth, logger, adminRouter);

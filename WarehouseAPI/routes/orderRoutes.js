@@ -212,16 +212,16 @@ router.get('/:id', async (req, res) => {
 
 /**
  * PUT /api/orders/:id
- * 更新订单 (比如设置 is_paid, is_completed)
+ * Update order status (e.g. is_paid, is_completed, order_type)
  */
 router.put('/:id', async (req, res) => {
   const t = await sequelize.transaction();
   
   try {
-    const { is_paid, is_completed, remark } = req.body;
+    const { is_paid, is_completed, remark, order_type } = req.body;
     const orderId = req.params.id;
     
-    // 获取订单原始信息
+    // Get original order info
     const order = await Order.findByPk(orderId, {
       include: [{ model: Customer }]
     });
@@ -231,48 +231,100 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ success: false, msg: 'Order not found' });
     }
     
-    // 判断是否是付款状态变更且是销售订单
+    // Check if payment status changed and if it's a sales order
     const isPaidChanged = is_paid !== undefined && is_paid !== order.is_paid;
     const isSalesOrder = order.order_type === 'SALES';
     
-    // 更新订单
+    // Check if order type changed from QUOTE to SALES
+    const isTypeChangedToSales = order_type === 'SALES' && order.order_type === 'QUOTE';
+    
+    // Update order
+    const updateFields = { 
+      remark: remark !== undefined ? remark : order.remark 
+    };
+    
+    // Add optional fields if provided
+    if (is_paid !== undefined) updateFields.is_paid = is_paid;
+    if (is_completed !== undefined) updateFields.is_completed = is_completed;
+    if (order_type !== undefined) updateFields.order_type = order_type;
+    
     const [count] = await Order.update(
-      { is_paid, is_completed, remark },
+      updateFields,
       { where: { id: orderId }, transaction: t }
     );
     
     if (count === 0) {
       await t.rollback();
-      return res.status(404).json({ success: false, msg: 'Order not found' });
+      return res.status(404).json({ success: false, msg: 'Order not found or no updates applied' });
     }
     
-    // 如果是销售订单且付款状态发生变化，则更新客户欠款
-    if (isSalesOrder && isPaidChanged) {
+    // Process inventory and customer debt if order type changed from QUOTE to SALES
+    if (isTypeChangedToSales) {
+      console.log(`Converting order ${orderId} from QUOTE to SALES`);
+      
+      // 1. Update inventory for all order items
+      const orderItems = await OrderItem.findAll({
+        where: { order_id: orderId },
+        transaction: t
+      });
+      
+      for (const item of orderItems) {
+        const inventory = await Inventory.findOne({
+          where: { 
+            material: item.material,
+            specification: item.specification
+          },
+          transaction: t
+        });
+        
+        if (inventory) {
+          // Reduce inventory based on order item quantity
+          const newQuantity = parseFloat(inventory.quantity) - parseFloat(item.quantity || 0);
+          await inventory.update({ quantity: newQuantity }, { transaction: t });
+          console.log(`Updated inventory for ${item.material}: -${item.quantity} = ${newQuantity}`);
+        }
+      }
+      
+      // 2. Update customer debt (only if the order is not marked as paid)
+      const isPaidValue = is_paid !== undefined ? is_paid : order.is_paid;
+      if (!isPaidValue) {
+        const customer = await Customer.findByPk(order.customer_id, { transaction: t });
+        const orderTotal = parseFloat(order.total_price || 0);
+        
+        if (customer) {
+          const newDebt = parseFloat(customer.total_debt || 0) + orderTotal;
+          await customer.update({ total_debt: newDebt.toFixed(2) }, { transaction: t });
+          console.log(`Updated customer ${customer.name} debt: +${orderTotal} = ${newDebt}`);
+        }
+      }
+    }
+    // Handle debt changes for existing sales orders with payment status changes
+    else if (isSalesOrder && isPaidChanged) {
       const customerId = order.customer_id;
       const orderTotal = parseFloat(order.total_price || 0);
       
-      // 获取客户信息
+      // Get customer info
       const customer = await Customer.findByPk(customerId, { transaction: t });
       
       if (customer) {
         let newDebt = parseFloat(customer.total_debt || 0);
         
         if (is_paid) {
-          // 付款后减少欠款
+          // Reduce debt after payment
           newDebt -= orderTotal;
           console.log(`Customer paid order: Reducing debt by ${orderTotal}`);
         } else {
-          // 取消付款状态增加欠款
+          // Increase debt when payment status cancelled
           newDebt += orderTotal;
           console.log(`Order payment canceled: Increasing debt by ${orderTotal}`);
         }
         
-        // 确保欠款不会小于0
+        // Ensure debt is not negative
         newDebt = Math.max(0, newDebt);
         
-        // 更新客户欠款
+        // Update customer debt
         await customer.update({ total_debt: newDebt.toFixed(2) }, { transaction: t });
-        console.log(`Updated customer ${customer.name} total_debt: ${is_paid ? '-' : '+'}${orderTotal} = ${newDebt}`);
+        console.log(`Updated customer ${customer.name} debt: ${is_paid ? '-' : '+'}${orderTotal} = ${newDebt}`);
       }
     }
     

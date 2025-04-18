@@ -141,4 +141,4 @@ export const generateLeaveTemplate = (data) => {
     </div>
   </body>
   </html>`;
-};
+}; 
