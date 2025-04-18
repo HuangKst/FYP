@@ -85,7 +85,7 @@ const OrderDetail = () => {
         
         // 如果来自客户详情页且提供了customerId，则返回客户详情页
         if (fromPage === 'customer' && customerId) {
-            return `/customers/${customerId}`;
+            return `/customers/${customerId}?from=order`;
         }
         
         // 默认返回订单列表页

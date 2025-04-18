@@ -57,6 +57,16 @@ export function generateCustomerOrdersTemplate(data) {
   const totalOrders = orders.length;
   const totalAmount = orders.reduce((sum, order) => sum + (parseFloat(order.totalAmount) || 0), 0);
   
+  // 按类型分类计算订单数据
+  const quoteOrders = orders.filter(order => order.orderType === 'QUOTE');
+  const salesOrders = orders.filter(order => order.orderType === 'SALES');
+  
+  const quoteOrdersCount = quoteOrders.length;
+  const quoteOrdersAmount = quoteOrders.reduce((sum, order) => sum + (parseFloat(order.totalAmount) || 0), 0);
+  
+  const salesOrdersCount = salesOrders.length;
+  const salesOrdersAmount = salesOrders.reduce((sum, order) => sum + (parseFloat(order.totalAmount) || 0), 0);
+  
   // 格式化客户信息
   const customerInfo = `
     <div class="info">
@@ -81,14 +91,28 @@ export function generateCustomerOrdersTemplate(data) {
       <h3>订单摘要</h3>
       <table>
         <tr>
+          <th>类型</th>
           <th>订单总数</th>
           <th>总金额</th>
           ${showUnpaid ? '<th>未付款总额</th>' : ''}
         </tr>
         <tr>
+          <td>报价单</td>
+          <td>${quoteOrdersCount}</td>
+          <td>¥${quoteOrdersAmount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</td>
+          ${showUnpaid ? '<td>--</td>' : ''}
+        </tr>
+        <tr>
+          <td>销售订单</td>
+          <td>${salesOrdersCount}</td>
+          <td>¥${salesOrdersAmount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</td>
+          ${showUnpaid ? `<td>¥${parseFloat(totalUnpaid).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</td>` : ''}
+        </tr>
+        <tr class="total-row">
+          <td>合计</td>
           <td>${totalOrders}</td>
-          <td>¥${totalAmount.toFixed(2)}</td>
-          ${showUnpaid ? `<td>¥${parseFloat(totalUnpaid).toFixed(2)}</td>` : ''}
+          <td>¥${totalAmount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</td>
+          ${showUnpaid ? `<td>¥${parseFloat(totalUnpaid).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</td>` : ''}
         </tr>
       </table>
     </div>
@@ -148,24 +172,32 @@ export function generateCustomerOrdersTemplate(data) {
       orderDate = order.orderDate || 'N/A';
     }
     
-    const paymentStatus = order.paymentStatus === 'paid' ? '已付款' : '未付款';
+    // 判断订单类型
+    const isQuoteOrder = order.orderType === 'QUOTE';
     
-    const orderStatus = 
-      order.status === 'pending' ? '待处理' :
-      order.status === 'completed' ? '已完成' : order.status;
+    // 对于报价单使用"--"表示付款和完成状态，对于销售订单显示实际状态
+    const paymentStatus = isQuoteOrder ? '--' : (order.paymentStatus === 'paid' ? '已付款' : '未付款');
+    const orderStatus = isQuoteOrder ? '--' : (order.status === 'pending' ? '待处理' : 
+                                               order.status === 'completed' ? '已完成' : order.status);
     
-    // 添加到订单汇总表
+    // 订单类型，用于订单汇总表显示
+    const orderType = order.orderType === 'QUOTE' ? '报价' : 
+                     order.orderType === 'SALES' ? '销售订单' : 
+                     '未知类型';
+    
+    // 添加到订单汇总表，增加订单类型列
     orderRows += `
       <tr class="${index % 2 === 0 ? 'even-row' : 'odd-row'}">
         <td>${order.orderNumber || `ORD-${order._id?.substring(0, 8)}` || `ORD-${index+1}`}</td>
         <td>${orderDate}</td>
+        <td>${orderType}</td>
         <td>${orderStatus}</td>
         <td>${paymentStatus}</td>
-        <td>¥${parseFloat(order.totalAmount || 0).toFixed(2)}</td>
+        <td>¥${parseFloat(order.totalAmount || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</td>
       </tr>
     `;
     
-    // 为每个订单创建详细信息部分
+    // 为每个订单创建详细信息部分，添加订单类型
     const itemsTable = order.items && order.items.length > 0 ? `
       <table class="items-table">
         <thead>
@@ -185,13 +217,13 @@ export function generateCustomerOrdersTemplate(data) {
               <td>${item.specification || 'N/A'}</td>
               <td>${item.quantity || 0}</td>
               <td>${item.unit || 'PCS'}</td>
-              <td>¥${parseFloat(item.unit_price || 0).toFixed(2)}</td>
-              <td>¥${parseFloat(item.subtotal || 0).toFixed(2)}</td>
+              <td>¥${parseFloat(item.unit_price || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</td>
+              <td>¥${parseFloat(item.subtotal || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</td>
             </tr>
           `).join('')}
           <tr>
             <td colspan="5" style="text-align: right;"><strong>总计</strong></td>
-            <td><strong>¥${parseFloat(order.totalAmount || 0).toFixed(2)}</strong></td>
+            <td><strong>¥${parseFloat(order.totalAmount || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</strong></td>
           </tr>
         </tbody>
       </table>
@@ -202,14 +234,17 @@ export function generateCustomerOrdersTemplate(data) {
         <h3>订单 #${order.orderNumber || `ORD-${order._id?.substring(0, 8)}` || `ORD-${index+1}`}</h3>
         <div class="order-info">
           <div class="info-row">
+            <div class="info-item"><strong>订单类型:</strong> ${orderType}</div>
             <div class="info-item"><strong>订单日期:</strong> ${orderDate}</div>
-            <div class="info-item"><strong>订单状态:</strong> ${orderStatus}</div>
           </div>
           <div class="info-row">
+            <div class="info-item"><strong>订单状态:</strong> ${orderStatus}</div>
             <div class="info-item"><strong>支付状态:</strong> ${paymentStatus}</div>
-            <div class="info-item"><strong>订单金额:</strong> ¥${parseFloat(order.totalAmount || 0).toFixed(2)}</div>
           </div>
-          ${order.remark ? `<div class="info-row"><div class="info-item"><strong>备注:</strong> ${order.remark}</div></div>` : ''}
+          <div class="info-row">
+            <div class="info-item"><strong>订单金额:</strong> ¥${parseFloat(order.totalAmount || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</div>
+            ${order.remark ? `<div class="info-item"><strong>备注:</strong> ${order.remark}</div>` : ''}
+          </div>
         </div>
         ${itemsTable}
       </div>
@@ -299,6 +334,23 @@ export function generateCustomerOrdersTemplate(data) {
         .summary-info, .filter-info {
           margin-bottom: 20px;
         }
+        .summary-info table {
+          border: 1px solid #ddd;
+        }
+        .summary-info th {
+          background-color: #f2f2f2;
+          padding: 8px;
+        }
+        .summary-info td {
+          padding: 8px;
+        }
+        .summary-info tr.total-row {
+          background-color: #f5f5f5;
+          font-weight: bold;
+        }
+        .summary-info tr.total-row td {
+          border-top: 2px solid #ddd;
+        }
         h3 {
           color: #2c3e50;
           border-bottom: 1px solid #ddd;
@@ -355,6 +407,7 @@ export function generateCustomerOrdersTemplate(data) {
             <tr>
               <th>订单号</th>
               <th>日期</th>
+              <th>类型</th>
               <th>状态</th>
               <th>支付状态</th>
               <th>金额</th>

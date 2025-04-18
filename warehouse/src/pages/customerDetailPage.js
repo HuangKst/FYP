@@ -77,6 +77,10 @@ const CustomerDetailPage = () => {
       const response = await getCustomerById(id);
       if (response.success) {
         setCustomer(response.customer);
+        // 在这里直接设置总欠款，避免依赖customer状态
+        const totalDebt = parseFloat(response.customer.total_debt || 0);
+        console.log(`客户 ${response.customer.name} 的总欠款: ¥${totalDebt}`);
+        setTotalCustomerDebt(totalDebt);
       } else {
         setError(response.msg || '获取客户详情失败');
       }
@@ -95,63 +99,12 @@ const CustomerDetailPage = () => {
       .reduce((sum, order) => sum + (order.total || 0), 0);
   };
 
-  // 单独获取客户的总欠款金额（不受筛选条件影响）
+  // 获取客户的总欠款金额
   const fetchTotalCustomerDebt = async (customerId) => {
     try {
-      console.log(`开始获取客户ID=${customerId}的总欠款金额...`);
-      
-      // 方式1：使用标准API获取所有未付款的销售订单
-      const response = await instance.get('/orders', {
-        params: { 
-          customerId: customerId,  // 确保参数名称正确
-          type: 'SALES',           // 只考虑销售订单
-          paid: 'false',           // 只考虑未付款订单
-          pageSize: 1000           // 足够大的数量获取所有订单
-        }
-      });
-      
-      console.log('获取欠款订单响应:', response.data);
-      
-      if (response.data.success && response.data.orders) {
-        // 计算总欠款
-        const totalDebt = response.data.orders.reduce((sum, order) => 
-          sum + parseFloat(order.total_price || 0), 0);
-        
-        console.log(`客户总欠款: ¥${totalDebt}, 欠款订单数: ${response.data.orders.length}`);
-        
-        if (response.data.orders.length > 0) {
-          console.log('欠款订单详情:', response.data.orders.map(o => ({
-            id: o.id,
-            orderNumber: o.order_number,
-            amount: parseFloat(o.total_price || 0)
-          })));
-        }
-        
-        return totalDebt;
-      }
-      
-      // 方式2：如果上面的方法失败，尝试另一种方式获取
-      console.log('尝试备用方式获取欠款信息...');
-      const backupResponse = await fetchOrders(
-        'SALES',   // 订单类型：销售订单
-        false,     // 是否已支付：未支付
-        null,      // 是否已完成：不限
-        null,      // 客户名称：不限
-        customerId,// 客户ID：当前客户
-        '',        // 订单号：不限
-        1,         // 页码：第1页
-        1000       // 每页大小：1000条
-      );
-      
-      if (backupResponse.success && backupResponse.orders) {
-        const totalDebtBackup = backupResponse.orders.reduce((sum, order) => 
-          sum + parseFloat(order.total_price || 0), 0);
-        
-        console.log(`备用方式获取的客户总欠款: ¥${totalDebtBackup}, 订单数: ${backupResponse.orders.length}`);
-        return totalDebtBackup;
-      }
-      
-      return 0;
+      // 客户信息中已经包含了 total_debt 字段，不需要再计算
+      // 此函数仅作为备用，当客户数据中的 total_debt 为空时使用
+      return 0; // 返回0，实际会使用客户数据中的 total_debt
     } catch (error) {
       console.error('获取客户总欠款失败:', error);
       return 0;
@@ -162,21 +115,16 @@ const CustomerDetailPage = () => {
   const loadOrdersData = async () => {
     try {
       setLoading(true);
-      // 获取当前订单号
-      const currentOrderNumber = window.orderNumberSearchComponent?.getOrderNumber() || '';
+      console.log('开始加载客户订单数据...');
       
-      const data = await fetchOrders(
-        orderType, 
-        isPaid, 
-        isCompleted, 
-        '', 
-        customerId, 
-        currentOrderNumber,
-        page,
-        pageSize
-      );
+      // 直接使用getCustomerOrders API获取客户所有订单，不应用筛选条件
+      const data = await getCustomerOrders(customerId, page, pageSize);
+      
+      console.log('获取到客户订单响应:', data);
       
       if (data && data.success) {
+        console.log(`加载成功: 获取到${data.orders?.length || 0}个订单`);
+        
         // 格式化订单数据
         const formattedOrders = (data.orders || []).map(order => ({
           id: order.id,
@@ -196,6 +144,8 @@ const CustomerDetailPage = () => {
           Customer: order.Customer
         }));
         
+        console.log('格式化后的订单数据:', formattedOrders);
+        
         setOrders(formattedOrders);
         setFilteredOrders(formattedOrders);
         updatePagination({
@@ -208,6 +158,7 @@ const CustomerDetailPage = () => {
         // 计算当前筛选结果的未付款金额
         setTotalUnpaidAmount(calculateTotalUnpaid(formattedOrders));
       } else {
+        console.error('加载订单失败:', data?.msg);
         setError(data?.msg || '获取订单失败');
         setOrders([]);
         setFilteredOrders([]);
@@ -223,18 +174,20 @@ const CustomerDetailPage = () => {
   useEffect(() => {
     if (!customerId) return;
     
-    // 获取客户详情
-    fetchCustomerDetails(customerId);
+    // 确保不管是否从订单详情页返回，都重置筛选条件，以显示所有订单
+    setOrderType('');
+    setIsPaid(null);
+    setIsCompleted(null);
+    if (window.orderNumberSearchComponent) {
+      window.orderNumberSearchComponent.resetOrderNumber();
+    }
     
-    // 获取客户未付款总额（不受筛选条件影响）
-    fetchTotalCustomerDebt(customerId).then(amount => {
-      console.log(`设置客户总欠款为: ¥${amount}`);
-      setTotalCustomerDebt(amount);
-    });
+    // 获取客户详情，包括欠款信息
+    fetchCustomerDetails(customerId);
 
     // 加载订单数据
     loadOrdersData();
-  }, [customerId]);
+  }, [customerId]); // 移除customer依赖项，避免循环重新获取
 
   // 执行搜索，整合所有搜索条件
   const handleSearch = async () => {
@@ -663,7 +616,7 @@ const CustomerDetailPage = () => {
               {/* 显示总欠款 */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <Chip 
-                  label={`未付款总额: ¥${totalCustomerDebt.toLocaleString()}`}
+                  label={`未付款总额: ¥${(customer?.total_debt || 0).toLocaleString()}`}
                   color="error"
                   variant="outlined"
                   sx={{ fontWeight: 'bold' }}

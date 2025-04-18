@@ -66,14 +66,19 @@ export const deleteCustomer = async (customerId) => {
 // 获取客户所有订单
 export const getCustomerOrders = async (customerId, page = 1, pageSize = 10) => {
   try {
+    console.log(`获取客户ID=${customerId}的订单...`);
+    
     // 使用查询参数获取特定客户的订单
     const response = await instance.get('/orders', {
       params: { 
-        customer_id: customerId,
+        customerId: customerId, // 使用customerId参数名，与后端API匹配
         page,
         pageSize
       }
     });
+    
+    console.log(`获取客户订单API返回 ${response.data?.orders?.length || 0} 个订单`);
+    
     return response.data;
   } catch (error) {
     return handleError(error, '获取客户订单失败');

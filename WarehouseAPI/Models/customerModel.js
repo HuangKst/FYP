@@ -21,6 +21,11 @@ Customer.init({
   },
   remark: {
     type: DataTypes.TEXT
+  },
+  total_debt: {
+    type: DataTypes.DECIMAL(10, 2),
+    defaultValue: 0.00,
+    comment: '客户总欠款金额'
   }
 }, {
   sequelize,

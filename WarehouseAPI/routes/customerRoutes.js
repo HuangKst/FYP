@@ -356,6 +356,7 @@ router.get('/:id/orders/pdf', async (req, res) => {
         paymentStatus: order.is_paid ? 'paid' : 'unpaid',
         totalAmount: order.total_price,
         remark: order.remark || '',
+        orderType: order.order_type || 'UNKNOWN',
         items: items
       };
     });

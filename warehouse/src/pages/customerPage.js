@@ -183,19 +183,20 @@ const CustomerPage = () => {
                       <TableCell>Name</TableCell>
                       <TableCell>Phone</TableCell>
                       <TableCell>Address</TableCell>
+                      <TableCell>Total Debt</TableCell>
                       <TableCell>Actions</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {loading ? (
                       <TableRow>
-                        <TableCell colSpan={4} align="center">
+                        <TableCell colSpan={5} align="center">
                           Loading...
                         </TableCell>
                       </TableRow>
                     ) : customers.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={4} align="center">
+                        <TableCell colSpan={5} align="center">
                           No customers found
                         </TableCell>
                       </TableRow>
@@ -205,6 +206,13 @@ const CustomerPage = () => {
                           <TableCell>{customer.name}</TableCell>
                           <TableCell>{customer.phone}</TableCell>
                           <TableCell>{customer.address}</TableCell>
+                          <TableCell>
+                            {parseFloat(customer.total_debt || 0).toLocaleString('zh-CN', {
+                              style: 'currency',
+                              currency: 'CNY',
+                              minimumFractionDigits: 2
+                            })}
+                          </TableCell>
                           <TableCell>
                             <Box sx={{ display: 'flex', gap: 1 }}>
                               <Button

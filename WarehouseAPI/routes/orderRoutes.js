@@ -23,6 +23,8 @@ const router = express.Router();
  * - body包含: order_type, customer_id, user_id, items([...]) 等
  */
 router.post('/', async (req, res) => {
+  const t = await sequelize.transaction(); // 开始事务
+
   try {
     const { order_type, customer_id, user_id, items = [], remark } = req.body;
 
@@ -38,7 +40,7 @@ router.post('/', async (req, res) => {
       customer_id,
       user_id,
       remark
-    });
+    }, { transaction: t });
 
     // 3. Create OrderItems
     //    Iterate through items array
@@ -62,19 +64,20 @@ router.post('/', async (req, res) => {
         unit_price: it.unit_price || 0,
         subtotal,
         remark: it.remark || ''
-      });
+      }, { transaction: t });
     }
     
     // 更新订单总金额
-    await newOrder.update({ total_price: totalPrice.toFixed(2) });
+    await newOrder.update({ total_price: totalPrice.toFixed(2) }, { transaction: t });
 
-    // If it's a SALES order, reduce inventory
+    // If it's a SALES order, reduce inventory and update customer debt
     if (order_type === 'SALES') {
+      // 更新库存
       for (let it of items) {
         // Reduce inventory
         const inv = await Inventory.findOne({ 
           where: { material: it.material, specification: it.specification }
-        });
+        }, { transaction: t });
         if (!inv) {
           // Decide whether to throw an error or automatically create inventory
         } else {
@@ -83,13 +86,27 @@ router.post('/', async (req, res) => {
           if (newQty < 0) {
             // throw new Error('Insufficient inventory'); // or notify directly
           }
-          await inv.update({ quantity: newQty });
+          await inv.update({ quantity: newQty }, { transaction: t });
+        }
+      }
+
+      // 如果是销售订单且未付款，增加客户的total_debt
+      const isPaid = req.body.is_paid || false; // 假设默认未付款
+      if (!isPaid) {
+        // 查找客户并更新total_debt
+        const customer = await Customer.findByPk(customer_id, { transaction: t });
+        if (customer) {
+          const newDebt = parseFloat(customer.total_debt || 0) + totalPrice;
+          await customer.update({ total_debt: newDebt.toFixed(2) }, { transaction: t });
+          console.log(`Updated customer ${customer.name} total_debt: +${totalPrice} = ${newDebt}`);
         }
       }
     }
 
+    await t.commit(); // 提交事务
     res.status(201).json({ success: true, orderId: newOrder.id, order_number: newOrder.order_number });
   } catch (err) {
+    await t.rollback(); // 回滚事务
     console.error(err);
     res.status(500).json({ success: false, msg: 'Failed to create order', error: err.message });
   }
@@ -101,11 +118,13 @@ router.post('/', async (req, res) => {
  */
 router.get('/', async (req, res) => {
   try {
-    const { type, paid, completed, customerName, page = 1, pageSize = 10 } = req.query;
+    const { type, paid, completed, customerName, customerId, orderNumber, page = 1, pageSize = 10 } = req.query;
     const where = {};
     if (type) where.order_type = type;
     if (paid !== undefined) where.is_paid = (paid === 'true');
     if (completed !== undefined) where.is_completed = (completed === 'true');
+    if (customerId) where.customer_id = customerId;
+    if (orderNumber) where.order_number = { [Op.like]: `%${orderNumber}%` };
 
     const include = [
       { model: Customer },
@@ -196,17 +215,71 @@ router.get('/:id', async (req, res) => {
  * 更新订单 (比如设置 is_paid, is_completed)
  */
 router.put('/:id', async (req, res) => {
+  const t = await sequelize.transaction();
+  
   try {
     const { is_paid, is_completed, remark } = req.body;
-    const [count] = await Order.update(
-      { is_paid, is_completed, remark },
-      { where: { id: req.params.id } }
-    );
-    if (count === 0) {
+    const orderId = req.params.id;
+    
+    // 获取订单原始信息
+    const order = await Order.findByPk(orderId, {
+      include: [{ model: Customer }]
+    });
+    
+    if (!order) {
+      await t.rollback();
       return res.status(404).json({ success: false, msg: 'Order not found' });
     }
+    
+    // 判断是否是付款状态变更且是销售订单
+    const isPaidChanged = is_paid !== undefined && is_paid !== order.is_paid;
+    const isSalesOrder = order.order_type === 'SALES';
+    
+    // 更新订单
+    const [count] = await Order.update(
+      { is_paid, is_completed, remark },
+      { where: { id: orderId }, transaction: t }
+    );
+    
+    if (count === 0) {
+      await t.rollback();
+      return res.status(404).json({ success: false, msg: 'Order not found' });
+    }
+    
+    // 如果是销售订单且付款状态发生变化，则更新客户欠款
+    if (isSalesOrder && isPaidChanged) {
+      const customerId = order.customer_id;
+      const orderTotal = parseFloat(order.total_price || 0);
+      
+      // 获取客户信息
+      const customer = await Customer.findByPk(customerId, { transaction: t });
+      
+      if (customer) {
+        let newDebt = parseFloat(customer.total_debt || 0);
+        
+        if (is_paid) {
+          // 付款后减少欠款
+          newDebt -= orderTotal;
+          console.log(`Customer paid order: Reducing debt by ${orderTotal}`);
+        } else {
+          // 取消付款状态增加欠款
+          newDebt += orderTotal;
+          console.log(`Order payment canceled: Increasing debt by ${orderTotal}`);
+        }
+        
+        // 确保欠款不会小于0
+        newDebt = Math.max(0, newDebt);
+        
+        // 更新客户欠款
+        await customer.update({ total_debt: newDebt.toFixed(2) }, { transaction: t });
+        console.log(`Updated customer ${customer.name} total_debt: ${is_paid ? '-' : '+'}${orderTotal} = ${newDebt}`);
+      }
+    }
+    
+    await t.commit();
     res.json({ success: true, msg: 'Order updated successfully' });
   } catch (err) {
+    await t.rollback();
     console.error(err);
     res.status(500).json({ success: false, msg: 'Failed to update order' });
   }
@@ -217,12 +290,15 @@ router.put('/:id', async (req, res) => {
  * 删除订单(需要管理员权限)
  */
 router.delete('/:id', async (req, res) => {
+  const t = await sequelize.transaction();
+  
   try {
     // 检查用户权限
     const user = req.user; // 假设通过中间件已经获取了用户信息
     
     // 如果没有用户信息或用户角色不是admin/superadmin，拒绝操作
     if (!user || (user.userRole !== 'admin' && user.userRole !== 'superadmin')) {
+      await t.rollback();
       return res.status(403).json({ 
         success: false, 
         msg: 'Permission denied. Only administrators can delete orders.' 
@@ -232,39 +308,63 @@ router.delete('/:id', async (req, res) => {
     // 在删除前先获取订单信息和订单项目
     const orderId = req.params.id;
     const order = await Order.findByPk(orderId, {
-      include: [{ model: OrderItem }]
+      include: [
+        { model: OrderItem },
+        { model: Customer }
+      ]
     });
     
     if (!order) {
+      await t.rollback();
       return res.status(404).json({ success: false, msg: 'Order not found' });
     }
     
-    // 如果是销售订单，恢复库存
-    if (order.order_type === 'SALES' && order.OrderItems && order.OrderItems.length > 0) {
-      for (const item of order.OrderItems) {
-        // 找到对应的库存项
-        const inventory = await Inventory.findOne({
-          where: { 
-            material: item.material,
-            specification: item.specification
+    // 如果是销售订单，处理库存和客户欠款
+    if (order.order_type === 'SALES') {
+      // 1. 恢复库存
+      if (order.OrderItems && order.OrderItems.length > 0) {
+        for (const item of order.OrderItems) {
+          // 找到对应的库存项
+          const inventory = await Inventory.findOne({
+            where: { 
+              material: item.material,
+              specification: item.specification
+            }
+          }, { transaction: t });
+          
+          if (inventory) {
+            // 计算新库存数量
+            const newQuantity = parseFloat(inventory.quantity) + parseFloat(item.quantity || 0);
+            // 更新库存
+            await inventory.update({ quantity: newQuantity }, { transaction: t });
+            console.log(`Restored inventory for ${item.material} (${item.specification}): +${item.quantity}`);
           }
-        });
+        }
+      }
+      
+      // 2. 处理客户欠款
+      if (!order.is_paid) {
+        const customerId = order.customer_id;
+        const orderTotal = parseFloat(order.total_price || 0);
         
-        if (inventory) {
-          // 计算新库存数量
-          const newQuantity = parseFloat(inventory.quantity) + parseFloat(item.quantity || 0);
-          // 更新库存
-          await inventory.update({ quantity: newQuantity });
-          console.log(`Restored inventory for ${item.material} (${item.specification}): +${item.quantity}`);
+        // 获取客户
+        const customer = await Customer.findByPk(customerId, { transaction: t });
+        if (customer) {
+          // 减少客户欠款
+          const newDebt = Math.max(0, parseFloat(customer.total_debt || 0) - orderTotal);
+          await customer.update({ total_debt: newDebt.toFixed(2) }, { transaction: t });
+          console.log(`Updated customer ${customer.name} total_debt: -${orderTotal} = ${newDebt} (order deleted)`);
         }
       }
     }
     
     // 删除订单（关联的OrderItems会通过外键级联删除）
-    await order.destroy();
+    await order.destroy({ transaction: t });
     
+    await t.commit();
     res.json({ success: true, msg: 'Order deleted successfully' });
   } catch (err) {
+    await t.rollback();
     console.error('Error deleting order:', err);
     res.status(500).json({ success: false, msg: 'Failed to delete order' });
   }
@@ -303,7 +403,13 @@ router.put('/:id/edit', async (req, res) => {
     const t = await sequelize.transaction();
     
     try {
+      // 获取原始价格用于后续计算
+      const originalTotalPrice = parseFloat(order.total_price || 0);
+      
       // 1. 更新订单基本信息
+      const originalCustomerId = order.customer_id;
+      const customerChanged = customerId && customerId !== originalCustomerId;
+      
       await order.update({
         customer_id: customerId,
         remark
@@ -391,8 +497,8 @@ router.put('/:id/edit', async (req, res) => {
       }
       
       // 4. 更新总金额
-      const totalPrice = newItems.reduce((sum, item) => sum + parseFloat(item.subtotal), 0);
-      await order.update({ total_price: totalPrice.toFixed(2) }, { transaction: t });
+      const newTotalPrice = newItems.reduce((sum, item) => sum + parseFloat(item.subtotal), 0);
+      await order.update({ total_price: newTotalPrice.toFixed(2) }, { transaction: t });
       
       // 5. 更新库存
       for (const update of inventoryUpdates) {
@@ -407,6 +513,40 @@ router.put('/:id/edit', async (req, res) => {
           const newQuantity = parseFloat(inventory.quantity) + update.quantityChange;
           await inventory.update({ quantity: newQuantity }, { transaction: t });
           console.log(`Updated inventory for ${update.material} (${update.specification}): ${update.quantityChange > 0 ? '+' : ''}${update.quantityChange}`);
+        }
+      }
+      
+      // 6. 处理客户欠款更新
+      if (order.order_type === 'SALES' && !order.is_paid) {
+        // 金额差异
+        const priceDifference = newTotalPrice - originalTotalPrice;
+        
+        if (customerChanged) {
+          // 处理客户变更情况：减少原客户欠款，增加新客户欠款
+          
+          // 减少原客户欠款
+          const originalCustomer = await Customer.findByPk(originalCustomerId, { transaction: t });
+          if (originalCustomer) {
+            const originalNewDebt = Math.max(0, parseFloat(originalCustomer.total_debt || 0) - originalTotalPrice);
+            await originalCustomer.update({ total_debt: originalNewDebt.toFixed(2) }, { transaction: t });
+            console.log(`Reduced debt for original customer ${originalCustomer.name}: -${originalTotalPrice} = ${originalNewDebt}`);
+          }
+          
+          // 增加新客户欠款
+          const newCustomer = await Customer.findByPk(customerId, { transaction: t });
+          if (newCustomer) {
+            const newCustomerDebt = parseFloat(newCustomer.total_debt || 0) + newTotalPrice;
+            await newCustomer.update({ total_debt: newCustomerDebt.toFixed(2) }, { transaction: t });
+            console.log(`Added debt to new customer ${newCustomer.name}: +${newTotalPrice} = ${newCustomerDebt}`);
+          }
+        } else if (priceDifference !== 0) {
+          // 如果只是金额变更，更新当前客户欠款
+          const customer = await Customer.findByPk(order.customer_id, { transaction: t });
+          if (customer) {
+            const newDebt = parseFloat(customer.total_debt || 0) + priceDifference;
+            await customer.update({ total_debt: Math.max(0, newDebt).toFixed(2) }, { transaction: t });
+            console.log(`Updated customer ${customer.name} total_debt: ${priceDifference >= 0 ? '+' : ''}${priceDifference} = ${newDebt}`);
+          }
         }
       }
       
