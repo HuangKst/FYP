@@ -1,10 +1,10 @@
 /**
- * 订单PDF模板生成函数
- * @param {Object} orderData - 订单数据对象
- * @returns {string} - 返回HTML模板字符串
+ * Order PDF template generation function
+ * @param {Object} orderData - Order data object
+ * @returns {string} - Returns HTML template string
  */
 export const generateOrderTemplate = (orderData) => {
-  // 确保数据安全性，防止undefined值
+  // Ensure data safety, prevent undefined values
   const safeData = {
     order_number: orderData.order_number || 'N/A',
     order_type: orderData.order_type || 'N/A',
@@ -15,11 +15,11 @@ export const generateOrderTemplate = (orderData) => {
     is_sales: orderData.is_sales || false,
     remark: orderData.remark || '',
     Customer: {
-      name: orderData.Customer?.name || '未知客户',
+      name: orderData.Customer?.name || 'Unknown Customer',
       address: orderData.Customer?.address || ''
     },
     User: {
-      username: orderData.User?.username || '未知用户',
+      username: orderData.User?.username || 'Unknown User',
       role: orderData.User?.role || ''
     },
     order_items: Array.isArray(orderData.order_items) ? orderData.order_items : [],

@@ -1,10 +1,10 @@
 /**
- * 员工加班记录PDF模板生成函数
- * @param {Object} data - 加班数据对象
- * @returns {string} - 返回HTML模板字符串
+ * Employee Overtime Records PDF Template Generation Function
+ * @param {Object} data - Overtime data object
+ * @returns {string} - Returns HTML template string
  */
 export const generateOvertimeTemplate = (data) => {
-  // 确保数据安全性
+  // Ensure data safety
   const safeData = {
     employee: data.employee || {},
     overtimes: Array.isArray(data.overtimes) ? data.overtimes : [],
@@ -14,7 +14,7 @@ export const generateOvertimeTemplate = (data) => {
     generatedDate: new Date().toLocaleDateString()
   };
 
-  // 构建表格行HTML
+  // Build table row HTML
   const tableRows = safeData.overtimes.map(item => `
     <tr>
       <td>${new Date(item.overtime_date).toLocaleDateString() || '-'}</td>
