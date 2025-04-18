@@ -27,7 +27,7 @@ app.use(cors());
 app.use(express.json());
 
 // 路由
-app.use('/api/users', usersRouter); // 如果部分路由不需要认证，可直接使用
+app.use('/api/users', logger, usersRouter); // 用户路由需要添加日志记录，但不需要默认认证
 
 // 添加PDF下载路由特例 - 不需要认证
 app.get('/api/orders/:id/pdf', orderRoutes);

@@ -44,7 +44,7 @@ import PdfExportButton from '../component/PdfExportButton';
 import { BASE_URL } from '../config';
 
 // 获取环境变量中的API基础URL，如果未定义则使用默认值
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8080/api';
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 
 const EmployeeDetailPage = () => {
   const { id } = useParams();

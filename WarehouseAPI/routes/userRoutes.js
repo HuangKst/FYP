@@ -3,6 +3,8 @@ import express from 'express';
 import asyncHandler from 'express-async-handler';
 import jwt from 'jsonwebtoken';
 import User from '../Models/userModel.js';
+import authenticate from '../authenticate/index.js';
+import adminAuth from '../authenticate/adminAuth.js';
 
 
 const router = express.Router();
@@ -11,6 +13,117 @@ const router = express.Router();
 router.get('/', asyncHandler(async (req, res) => {
   const users = await User.findAll();
   res.status(200).json(users);
+}));
+
+// 获取employee角色的用户 (GET /api/users/employees)
+router.get('/employees', authenticate, adminAuth, asyncHandler(async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const pageSize = parseInt(req.query.pageSize) || 10;
+    const offset = (page - 1) * pageSize;
+    
+    // 测试查询是否可以正常工作
+    console.log('Querying employee users with role=employee');
+    
+    // 计算employee用户总数
+    const count = await User.count({
+      where: { role: 'employee' }
+    });
+    
+    console.log(`Found ${count} employee users`);
+    
+    // 获取分页后的employee用户
+    const employees = await User.findAll({
+      where: { role: 'employee' },
+      attributes: ['id', 'username', 'status', 'role', 'created_at', 'updated_at'],
+      limit: pageSize,
+      offset: offset,
+      order: [['created_at', 'DESC']]
+    });
+    
+    console.log(`Returning ${employees.length} employee users for page ${page}`);
+    
+    return res.status(200).json({
+      success: true,
+      users: employees,
+      pagination: {
+        total: count,
+        page: page,
+        pageSize: pageSize,
+        totalPages: Math.ceil(count / pageSize)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching employee users:', error);
+    return res.status(500).json({ 
+      success: false, 
+      msg: 'Failed to fetch employee users: ' + error.message,
+      users: []
+    });
+  }
+}));
+
+// 修改用户密码 (PUT /api/users/:id/password)
+router.put('/:id/password', authenticate, adminAuth, asyncHandler(async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const { password } = req.body;
+    
+    console.log(`Updating password for user ID: ${userId}`);
+    
+    if (!password) {
+      return res.status(400).json({ 
+        success: false, 
+        msg: 'Password is required' 
+      });
+    }
+    
+    // 验证密码强度
+    const { validatePasswordStrength } = await import('../utils/passwordValidator.js');
+    const isValid = validatePasswordStrength(password);
+    
+    if (!isValid) {
+      return res.status(400).json({
+        success: false,
+        msg: 'Password does not meet strength requirements. It should be at least 8 characters and contain letters, numbers, and special characters.'
+      });
+    }
+    
+    // 查找用户
+    const user = await User.findByPk(userId);
+    
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        msg: 'User not found' 
+      });
+    }
+    
+    // 更新密码 - 密码哈希在模型的beforeSave钩子中处理
+    user.password = password;
+    await user.save();
+    
+    console.log(`Password updated successfully for user ID: ${userId}`);
+    
+    return res.status(200).json({
+      success: true,
+      msg: 'Password updated successfully'
+    });
+  } catch (error) {
+    console.error('Error updating password:', error);
+    
+    if (error.message === 'Password is invalid') {
+      return res.status(400).json({
+        success: false,
+        msg: 'Password does not meet strength requirements'
+      });
+    }
+    
+    return res.status(500).json({ 
+      success: false, 
+      msg: 'Failed to update password: ' + error.message
+    });
+  }
 }));
 
 // 注册 or 登录 (POST /api/users?action=register / authenticate)
