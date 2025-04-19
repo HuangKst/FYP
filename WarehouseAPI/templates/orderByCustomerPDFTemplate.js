@@ -96,23 +96,27 @@ export function generateCustomerOrdersTemplate(data) {
           <th>Total Amount</th>
           ${showUnpaid ? '<th>Total Unpaid</th>' : ''}
         </tr>
+        ${!filters.orderType || filters.orderType === 'QUOTE' ? `
         <tr>
           <td>Quotes</td>
           <td>${quoteOrdersCount}</td>
           <td>¥${quoteOrdersAmount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</td>
           ${showUnpaid ? '<td>--</td>' : ''}
-        </tr>
+        </tr>` : ''}
+        ${!filters.orderType || filters.orderType === 'SALES' ? `
         <tr>
           <td>Sales Orders</td>
           <td>${salesOrdersCount}</td>
           <td>¥${salesOrdersAmount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</td>
           ${showUnpaid ? `<td>¥${parseFloat(totalUnpaid).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</td>` : ''}
-        </tr>
+        </tr>` : ''}
         <tr class="total-row">
           <td>Total</td>
           <td>${totalOrders}</td>
           <td>¥${totalAmount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</td>
-          ${showUnpaid ? `<td>¥${parseFloat(totalUnpaid).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</td>` : ''}
+          ${showUnpaid && (!filters.orderType || filters.orderType === 'SALES') ? 
+            `<td>¥${parseFloat(totalUnpaid).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</td>` : 
+            showUnpaid ? '<td>--</td>' : ''}
         </tr>
       </table>
     </div>

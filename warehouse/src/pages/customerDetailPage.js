@@ -374,19 +374,21 @@ const CustomerDetailPage = () => {
       exportAllOrders
     });
     
-    // Modification: Always set includeAllOrders to true, regardless of filter conditions
-    // This ensures all orders are included in the PDF
-    const shouldIncludeAllOrders = true;
+    // 明确检查includeAllOrders的值
+    console.log(`includeAllOrders参数值: "${exportAllOrders}", 类型: ${typeof exportAllOrders}`);
+    // 使用前端传递的值，不再强制设为true
+    const shouldIncludeAllOrders = exportAllOrders === true || exportAllOrders === 'true';
+    console.log(`是否应包含所有订单: ${shouldIncludeAllOrders}`);
     
     // Build export options - ensure all filter conditions are passed
     const exportOptions = {
       // Basic information
       customerName: customer.name,
-      // Always set includeAllOrders to true
-      includeAllOrders: shouldIncludeAllOrders,
+      // 明确设置includeAllOrders为字符串值'true'或'false'
+      includeAllOrders: shouldIncludeAllOrders ? 'true' : 'false',
       
       // Pass filter parameters for display in the PDF
-      orderType: orderType || undefined,
+      orderType: orderType ? orderType.toUpperCase() : undefined,
       orderNumber: currentOrderNumber || undefined,
       status: isCompleted === true ? 'completed' : 
               isCompleted === false ? 'pending' : undefined,
@@ -396,7 +398,9 @@ const CustomerDetailPage = () => {
       // Use the customer's total debt amount, regardless of current filter conditions
       unpaidAmount: totalCustomerDebt,
       // Display settings - always show debt amount as this is the customer's total debt
-      showUnpaid: true
+      showUnpaid: true,
+      // Pass filtered orders data directly to ensure correct results
+      useFilteredOrders: true
     };
     
     // Log export information
@@ -553,15 +557,19 @@ const CustomerDetailPage = () => {
                   url={`${BASE_URL}/customers/${customerId}/orders/pdf`}
                   queryParams={{
                     customerName: customer.name,
-                    includeAllOrders: true,
-                    orderType: orderType || undefined,
+                    // 显式设置includeAllOrders为false当有筛选条件时
+                    includeAllOrders: !(orderType || window.orderNumberSearchComponent?.getOrderNumber() || isCompleted !== null || isPaid !== null) ? 'true' : 'false',
+                    // 确保订单类型统一使用大写格式
+                    orderType: orderType ? orderType.toUpperCase() : undefined,
                     orderNumber: window.orderNumberSearchComponent?.getOrderNumber() || undefined,
                     status: isCompleted === true ? 'completed' : 
                           isCompleted === false ? 'pending' : undefined,
                     paymentStatus: isPaid === true ? 'paid' : 
                                   isPaid === false ? 'unpaid' : undefined,
                     unpaidAmount: totalCustomerDebt,
-                    showUnpaid: true
+                    showUnpaid: true,
+                    // Pass filtered orders data directly to ensure correct results
+                    useFilteredOrders: true
                   }}
                   filename={`customer-${customer.name.replace(/\s+/g, '_')}-orders.pdf`}
                   disabled={orders.length === 0}

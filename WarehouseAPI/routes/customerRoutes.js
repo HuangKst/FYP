@@ -215,9 +215,9 @@ router.get('/:id/orders/pdf', async (req, res) => {
       
       // 明确检查includeAllOrders的值
       console.log(`includeAllOrders参数值: "${includeAllOrders}", 类型: ${typeof includeAllOrders}`);
-      // 修改：强制设置shouldIncludeAllOrders为true，确保始终获取所有订单
-      const shouldIncludeAllOrders = true;
-      console.log(`是否应包含所有订单: ${shouldIncludeAllOrders} (已强制为true)`);
+      // 正确使用前端传递的includeAllOrders参数
+      const shouldIncludeAllOrders = includeAllOrders === 'true';
+      console.log(`是否应包含所有订单: ${shouldIncludeAllOrders}`);
       
       // 如果不是包含所有订单，则应用过滤条件
       if (!shouldIncludeAllOrders) {
@@ -246,7 +246,11 @@ router.get('/:id/orders/pdf', async (req, res) => {
           where.is_paid = 0;
         }
       } else {
-        console.log('请求包含所有订单，不应用筛选条件');
+        console.log('请求包含所有订单，但仍应用订单类型筛选条件');
+        // 即使包含所有订单，也应用订单类型筛选
+        if (orderType) {
+          where.order_type = orderType;
+        }
       }
       
       console.log('PDF查询条件:', where);
@@ -385,7 +389,8 @@ router.get('/:id/orders/pdf', async (req, res) => {
       // 显示控制 - 直接使用请求参数
       showUnpaid: showUnpaid === 'true',
       filters: {
-        orderType,
+        // 确保orderType格式正确，保持大写
+        orderType: orderType ? orderType.toUpperCase() : undefined,
         orderNumber,
         status,
         paymentStatus
