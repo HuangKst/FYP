@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { 
   Box, 
   Grid, 
@@ -22,13 +22,20 @@ import ComplexStatisticsCard from "../component/Cards/StatisticsCards";
 import OrderList from "../component/Cards/OrderCards";
 import SalesChart from "../component/Cards/SalesChart";
 import MaterialPriceChart from "../component/Cards/MaterialPriceChart";
+import InventoryPieChart from "../component/inventoryChart";
 
 // Import the statistics API
 import { getDashboardStats } from "../api/statsApi";
 import { fetchQuoteOrders, fetchIncompleteOrders, fetchUnpaidOrders } from "../api/orderApi";
 
+// Import auth context
+import { AuthContext } from "../contexts/authContext";
+
 export default function Home() {
   const navigate = useNavigate();
+  const { role, hasPermission } = useContext(AuthContext);
+  const isEmployee = role === 'employee';
+  
   // State for statistics data
   const [stats, setStats] = useState({
     orders: { total: 0, previousMonth: 0 },
@@ -190,49 +197,72 @@ export default function Home() {
                 />
               </MDBox>
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <MDBox mb={1.5}>
-                <ComplexStatisticsCard
-                  color="error"
-                  icon={<PeopleOutlined style={{ fontSize: 26 }} />}
-                  title="Employees"
-                  count={stats.employees.total.toString()}
-                  percentage={{
-                    color: "success",
-                    amount: "",
-                    label: `New this month: ${stats.employees.newEmployees}`,
-                  }}
-                  onClick={() => handleNavigate('/employee')}
-                />
-              </MDBox>
-            </Grid>
+            {/* Employee卡片 - 仅对管理员和非employee角色显示 */}
+            {!isEmployee && (
+              <Grid item xs={12} sm={6} md={3}>
+                <MDBox mb={1.5}>
+                  <ComplexStatisticsCard
+                    color="error"
+                    icon={<PeopleOutlined style={{ fontSize: 26 }} />}
+                    title="Employees"
+                    count={stats.employees.total.toString()}
+                    percentage={{
+                      color: "success",
+                      amount: "",
+                      label: `New this month: ${stats.employees.newEmployees}`,
+                    }}
+                    onClick={() => handleNavigate('/employee')}
+                  />
+                </MDBox>
+              </Grid>
+            )}
           </Grid>
         )}
 
-        {/* 图表区域 */}
+        {/* 库存饼图区域 */}
         <MDBox mt={4.5}>
           <Grid container spacing={3} mb={4}>
-            <Grid item xs={12} md={4}>
-              <SalesChart />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <MaterialPriceChart 
-                materialType="stainless_steel"
-                title="不锈钢价格"
-                color="#2e7d32"
-                backgroundColor="#4caf50"
+            <Grid item xs={12} md={6}>
+              <InventoryPieChart 
+                material="201" 
+                title="201 Stainless Steel Inventory" 
               />
             </Grid>
-            <Grid item xs={12} md={4}>
-              <MaterialPriceChart 
-                materialType="hot_rolled_coil"
-                title="热卷价格"
-                color="#d32f2f"
-                backgroundColor="#ffc107"
+            <Grid item xs={12} md={6}>
+              <InventoryPieChart 
+                material="304" 
+                title="304 Stainless Steel Inventory" 
               />
             </Grid>
           </Grid>
         </MDBox>
+
+        {/* 图表区域 - 仅对管理员和非employee角色显示 */}
+        {!isEmployee && (
+          <MDBox mt={4.5}>
+            <Grid container spacing={3} mb={4}>
+              <Grid item xs={12} md={4}>
+                <SalesChart />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <MaterialPriceChart 
+                  materialType="stainless_steel"
+                  title="Stainless Steel Price"
+                  color="#2e7d32"
+                  backgroundColor="#4caf50"
+                />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <MaterialPriceChart 
+                  materialType="hot_rolled_coil"
+                  title="Hot Rolled Coil Price"
+                  color="#d32f2f"
+                  backgroundColor="#ffc107"
+                />
+              </Grid>
+            </Grid>
+          </MDBox>
+        )}
 
         {/* 订单区域 */}
         <MDBox>
