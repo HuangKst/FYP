@@ -107,20 +107,20 @@ const InventoryPieChart = ({ material, title }) => {
     const getSliceColor = (index, total) => {
         // 基础颜色选择（按材质）
         const baseColor = material === '201'
-          ? { r: 33, g: 150, b: 243 }   // 蓝色
-          : { r: 76, g: 175, b: 80 };   // 绿色
-      
+            ? { r: 33, g: 150, b: 243 }   // 蓝色
+            : { r: 76, g: 175, b: 80 };   // 绿色
+
         // 明度从 0%（最深）到 50%（最浅）过渡（数量越多 index 越小）
         const lightnessAdjust = ((total - index - 1) / total) * 50;
-      
+
         // 计算最终颜色
         const r = Math.min(255, baseColor.r + lightnessAdjust);
         const g = Math.min(255, baseColor.g + lightnessAdjust);
         const b = Math.min(255, baseColor.b + lightnessAdjust);
-      
+
         return `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
-      };
-      
+    };
+
 
     // 生成饼图路径
     const generatePieSlices = () => {
@@ -302,15 +302,20 @@ const InventoryPieChart = ({ material, title }) => {
                         {/* 右侧TOP 5列表 */}
                         <Box
                             sx={{
-                                width: '55%',
-                                pl: 0,
-                                pr: 2,
+                                borderRadius: '4px',
+                                py: 1.5,
+                                px: 2,
+                                mt: 0,
+                                backgroundColor: 'rgba(245, 245, 245, 0.5)',
                                 display: 'flex',
                                 flexDirection: 'column',
                                 justifyContent: 'flex-start',
-                                pt: 0
+                                height: 'auto',          
+                                flexGrow: 1,             
+                                overflow: 'hidden'       
                             }}
                         >
+
                             <Box
                                 sx={{
                                     borderRadius: '4px',

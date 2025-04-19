@@ -149,7 +149,7 @@ export default function Home() {
           </Box>
         ) : (
           <Grid container spacing={3}>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid item xs={12} sm={isEmployee ? 4 : 6} md={isEmployee ? 4 : 3}>
               <MDBox mb={1.5}>
                 <ComplexStatisticsCard
                   color="primary"
@@ -165,7 +165,7 @@ export default function Home() {
                 />
               </MDBox>
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid item xs={12} sm={isEmployee ? 4 : 6} md={isEmployee ? 4 : 3}>
               <MDBox mb={1.5}>
                 <ComplexStatisticsCard
                   color="success"
@@ -181,7 +181,7 @@ export default function Home() {
                 />
               </MDBox>
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid item xs={12} sm={isEmployee ? 4 : 6} md={isEmployee ? 4 : 3}>
               <MDBox mb={1.5}>
                 <ComplexStatisticsCard
                   color="info"
