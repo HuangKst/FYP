@@ -415,6 +415,7 @@ const OrderDetail = () => {
                                         <TableCell>Weight</TableCell>
                                         <TableCell>Unit Price</TableCell>
                                         <TableCell>Subtotal</TableCell>
+                                        <TableCell>Remark</TableCell>
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
@@ -428,15 +429,16 @@ const OrderDetail = () => {
                                                 <TableCell>{item.weight || '-'}</TableCell>
                                                 <TableCell>{item.unit_price}</TableCell>
                                                 <TableCell>{item.subtotal}</TableCell>
+                                                <TableCell>{item.remark || '-'}</TableCell>
                                             </TableRow>
                                         ))
                                     ) : (
                                         <TableRow>
-                                            <TableCell colSpan={7} align="center">No order items</TableCell>
+                                            <TableCell colSpan={8} align="center">No order items</TableCell>
                                         </TableRow>
                                     )}
                                     <TableRow>
-                                        <TableCell colSpan={5}></TableCell>
+                                        <TableCell colSpan={6}></TableCell>
                                         <TableCell><strong>Total</strong></TableCell>
                                         <TableCell><strong>{calculateTotal()}</strong></TableCell>
                                     </TableRow>
@@ -455,6 +457,8 @@ const OrderDetail = () => {
                             onChange={(e) => setRemark(e.target.value)}
                             disabled={updating || !canEdit}
                             sx={{ mb: 3 }}
+                            placeholder={order.remark ? "" : "No remarks available"}
+                            helperText={!canEdit && "Only administrators or managers can edit remarks"}
                         />
 
                         {/* 状态更新区域（仅销售单可用） */}

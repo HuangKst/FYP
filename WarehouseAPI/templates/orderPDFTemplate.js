@@ -33,8 +33,10 @@ export const generateOrderTemplate = (orderData) => {
       <td>${item.specification || ''}</td>
       <td>${item.quantity || ''}</td>
       <td>${item.unit || ''}</td>
+      <td>${item.weight || '-'}</td>
       <td>${item.unit_price || ''}</td>
       <td>${item.subtotal || ''}</td>
+      <td>${item.remark || '-'}</td>
     </tr>
   `).join('');
   
@@ -155,15 +157,18 @@ export const generateOrderTemplate = (orderData) => {
           <th>Specification</th>
           <th>Quantity</th>
           <th>Unit</th>
+          <th>Weight</th>
           <th>Unit Price</th>
           <th>Subtotal</th>
+          <th>Remark</th>
         </tr>
       </thead>
       <tbody>
         ${tableRows}
         <tr>
-          <td colspan="5" style="text-align: right;"><strong>Total Amount</strong></td>
+          <td colspan="6" style="text-align: right;"><strong>Total Amount</strong></td>
           <td><strong>${safeData.total_price}</strong></td>
+          <td></td>
         </tr>
       </tbody>
     </table>

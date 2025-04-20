@@ -28,10 +28,43 @@ router.post('/', async (req, res) => {
   try {
     const { order_type, customer_id, user_id, items = [], remark } = req.body;
 
-    // 1. Generate order number (YYYYMMDD + xx)
-    const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,'');
-    // TODO: Get today's order count and increment (simplified here)
-    const orderNumber = dateStr + '00'; 
+    // 1. Generate order number (YYYYMMDD-XXXX)
+    const today = new Date();
+    const dateStr = today.toISOString().slice(0,10).replace(/-/g,''); // YYYYMMDD
+    
+    // 查询当天最新的订单号
+    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+    
+    const todayOrders = await Order.findAll({
+      where: {
+        created_at: {
+          [Op.gte]: startOfDay,
+          [Op.lt]: endOfDay
+        },
+        order_number: {
+          [Op.like]: `${dateStr}%`
+        }
+      },
+      order: [['order_number', 'DESC']],
+      limit: 1
+    });
+    
+    // 计算今天的订单序号
+    let sequenceNumber = 0;
+    
+    if (todayOrders && todayOrders.length > 0) {
+      // 从最新订单号中提取序号部分并加1
+      const latestOrderNumber = todayOrders[0].order_number;
+      const sequencePart = latestOrderNumber.substring(dateStr.length);
+      sequenceNumber = parseInt(sequencePart, 10) + 1;
+    }
+    
+    // 格式化为4位数字，不足前面补0
+    const formattedSequence = String(sequenceNumber).padStart(4, '0');
+    
+    // 最终订单号格式: YYYYMMDD-XXXX (例如: 20240421-0001)
+    const orderNumber = `${dateStr}${formattedSequence}`;
 
     // 2. Create Order
     const newOrder = await Order.create({
