@@ -46,17 +46,47 @@ const getCurrentUser = () => {
 };
 
 // 检查用户是否有权限编辑订单
-const hasEditPermission = (user) => {
+const hasEditPermission = (user, order) => {
     if (!user) return false;
-    // 检查userRole属性（localStorage中存储的键名）
-    return user.userRole === 'admin' || user.userRole === 'boss';
+    
+    // 管理员或老板有权限编辑所有订单
+    if (user.userRole === 'admin' || user.userRole === 'boss') {
+        return true;
+    }
+    
+    // 员工只能编辑自己创建的订单
+    if (user.userRole === 'employee' && order) {
+        // 检查订单的创建者ID是否匹配当前用户ID
+        const orderUserId = order.user_id;
+        const currentUserId = user.userId;
+        console.log('订单创建者ID:', orderUserId, '当前用户ID:', currentUserId);
+        
+        // 如果当前用户是订单创建者，允许编辑
+        return orderUserId === currentUserId;
+    }
+    
+    return false;
 };
 
 // 检查用户是否有权限删除订单
-const hasDeletePermission = (user) => {
+const hasDeletePermission = (user, order) => {
     if (!user) return false;
-    // 检查userRole属性（localStorage中存储的键名）
-    return user.userRole === 'admin';
+    
+    // 管理员有权限删除所有订单
+    if (user.userRole === 'admin') {
+        return true;
+    }
+    
+    // 员工只能删除自己创建的订单
+    if (user.userRole === 'employee' && order) {
+        const orderUserId = order.user_id;
+        const currentUserId = user.userId;
+        
+        // 如果当前用户是订单创建者，允许删除
+        return orderUserId === currentUserId;
+    }
+    
+    return false;
 };
 
 const OrderDetail = () => {
@@ -81,9 +111,9 @@ const OrderDetail = () => {
     // 获取当前用户
     const currentUser = getCurrentUser();
     // 检查是否有编辑权限
-    const canEdit = hasEditPermission(currentUser);
+    const canEdit = hasEditPermission(currentUser, order);
     // 检查是否有删除权限
-    const canDelete = hasDeletePermission(currentUser);
+    const canDelete = hasDeletePermission(currentUser, order);
 
     // 添加调试日志
     console.log('当前用户信息:', currentUser);
@@ -168,7 +198,7 @@ const OrderDetail = () => {
         
         // 检查权限
         if (!canEdit) {
-            setError('You do not have permission to edit this order. Only administrators or managers can perform this action.');
+            setError('You do not have permission to edit this order. Only administrators, managers, or the employee who created this order can perform this action.');
             return;
         }
         
@@ -204,7 +234,7 @@ const OrderDetail = () => {
         
         // 检查权限
         if (!canEdit) {
-            setError('You do not have permission to convert this order. Only administrators or managers can perform this action.');
+            setError('You do not have permission to convert this order. Only administrators, managers, or the employee who created this order can perform this action.');
             return;
         }
         
@@ -247,7 +277,7 @@ const OrderDetail = () => {
         
         // 再次检查权限
         if (!canDelete) {
-            setError('You do not have permission to delete this order. Only administrators can perform this action.');
+            setError('You do not have permission to delete this order. Only administrators or the employee who created this order can perform this action.');
             setDeleteConfirm(false);
             return;
         }

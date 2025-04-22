@@ -4,7 +4,7 @@ import { BrowserRouter, Route, Navigate, Routes,Outlet} from "react-router-dom";
 import HomePage from "./pages/homePage";
 import { QueryClientProvider, QueryClient } from "react-query";
 import { ReactQueryDevtools } from 'react-query/devtools';
-import ProtectedRoutes from "./protectRoutes";
+import ProtectedRoutes, { EmployeeRestricted } from "./protectRoutes";
 import AdminRoutes from "./AdminRoutes.js";
 import LoginPage from "./pages/LoginPage";
 import AuthContextProvider from "./contexts/authContext.js";
@@ -47,7 +47,11 @@ const Layout = () => {
             <Route path="/home" element={<HomePage />} />  
             <Route path="/inventory" element={<InventoryPage/>} />
             <Route path="/customer" element={<CustomerPage/>} />
-            <Route path="/customers/:customerId" element={<CustomerDetailPage/>} />
+            <Route path="/customers/:customerId" element={
+              <EmployeeRestricted>
+                <CustomerDetailPage/>
+              </EmployeeRestricted>
+            } />
             <Route path="/orders" element={<OrderPage/>} />
             <Route path="/order/:orderId" element={<OrderDetailPage/>} />
             <Route path="/edit-order/:orderId" element={<EditOrderPage/>} />

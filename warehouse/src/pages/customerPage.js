@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { getCustomers, addCustomer, deleteCustomer } from '../api/customerApi';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -19,10 +19,14 @@ import {
   DialogTitle,
   Container,
   InputAdornment,
-  IconButton
+  IconButton,
+  Tooltip
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
+import ClearIcon from '@mui/icons-material/Clear';
+import AddIcon from '@mui/icons-material/Add';
 import Pagination from '../component/Pagination';
+import { AuthContext } from '../contexts/authContext';
 
 const CustomerPage = () => {
   const [customers, setCustomers] = useState([]);
@@ -31,6 +35,10 @@ const CustomerPage = () => {
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', address: '', remark: '' });
   const [openDialog, setOpenDialog] = useState(false);
   const navigate = useNavigate();
+  
+  // 获取当前用户角色
+  const { role } = useContext(AuthContext);
+  const isEmployee = role === 'employee';
   
   // 分页状态
   const [page, setPage] = useState(1);
@@ -211,22 +219,54 @@ const CustomerPage = () => {
                           </TableCell>
                           <TableCell>
                             <Box sx={{ display: 'flex', gap: 1 }}>
-                              <Button
-                                color="primary"
-                                variant="outlined"
-                                size="small"
-                                onClick={() => handleViewCustomerDetail(customer.id)}
-                              >
-                                Details
-                              </Button>
-                              <Button 
-                                color="error" 
-                                variant="outlined"
-                                size="small"
-                                onClick={() => handleDeleteCustomer(customer.id)}
-                              >
-                                Delete
-                              </Button>
+                              {!isEmployee && (
+                                <Button
+                                  color="primary"
+                                  variant="outlined"
+                                  size="small"
+                                  onClick={() => handleViewCustomerDetail(customer.id)}
+                                >
+                                  Details
+                                </Button>
+                              )}
+                              {isEmployee && (
+                                <Tooltip title="You do not have permission to view customer details">
+                                  <span>
+                                    <Button
+                                      color="primary"
+                                      variant="outlined"
+                                      size="small"
+                                      disabled
+                                    >
+                                      Details
+                                    </Button>
+                                  </span>
+                                </Tooltip>
+                              )}
+                              {!isEmployee && (
+                                <Button 
+                                  color="error" 
+                                  variant="outlined"
+                                  size="small"
+                                  onClick={() => handleDeleteCustomer(customer.id)}
+                                >
+                                  Delete
+                                </Button>
+                              )}
+                              {isEmployee && (
+                                <Tooltip title="You do not have permission to delete customers">
+                                  <span>
+                                    <Button 
+                                      color="error" 
+                                      variant="outlined"
+                                      size="small"
+                                      disabled
+                                    >
+                                      Delete
+                                    </Button>
+                                  </span>
+                                </Tooltip>
+                              )}
                             </Box>
                           </TableCell>
                         </TableRow>

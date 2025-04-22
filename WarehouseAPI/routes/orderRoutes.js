@@ -10,6 +10,9 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { generateOrderTemplate } from '../templates/orderPDFTemplate.js';
 import { generatePDF, sendPDFResponse, handlePDFError } from '../utils/pdfGenerator.js';
+import authenticate from '../authenticate/index.js';
+import adminAuth from '../authenticate/adminAuth.js';
+import employeeOrderAuth from '../authenticate/employeeOrderAuth.js';
 
 // ES模块中获取__dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -26,7 +29,10 @@ router.post('/', async (req, res) => {
   const t = await sequelize.transaction(); // 开始事务
 
   try {
-    const { order_type, customer_id, user_id, items = [], remark } = req.body;
+    const { order_type, customer_id, items = [], remark } = req.body;
+    
+    // 使用当前登录用户的ID
+    const user_id = req.user.userId;
 
     // 1. Generate order number (YYYYMMDD-XXXX)
     const today = new Date();
@@ -153,11 +159,19 @@ router.get('/', async (req, res) => {
   try {
     const { type, paid, completed, customerName, customerId, orderNumber, page = 1, pageSize = 10 } = req.query;
     const where = {};
+    
+    // 基础过滤条件
     if (type) where.order_type = type;
     if (paid !== undefined) where.is_paid = (paid === 'true');
     if (completed !== undefined) where.is_completed = (completed === 'true');
     if (customerId) where.customer_id = customerId;
     if (orderNumber) where.order_number = { [Op.like]: `%${orderNumber}%` };
+    
+    // 如果是员工角色，只能查看自己的订单
+    if (req.user && req.user.userRole === 'employee') {
+      where.user_id = req.user.userId;
+      console.log(`Filtering orders for employee user: ${req.user.userId}`);
+    }
 
     const include = [
       { model: Customer },
@@ -211,7 +225,7 @@ router.get('/', async (req, res) => {
  * GET /api/orders/:id
  * 查看单个订单 (包含OrderItems)
  */
-router.get('/:id', async (req, res) => {
+router.get('/:id', employeeOrderAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const order = await Order.findByPk(id, {
@@ -247,7 +261,7 @@ router.get('/:id', async (req, res) => {
  * PUT /api/orders/:id
  * Update order status (e.g. is_paid, is_completed, order_type)
  */
-router.put('/:id', async (req, res) => {
+router.put('/:id', employeeOrderAuth, async (req, res) => {
   const t = await sequelize.transaction();
   
   try {
@@ -372,24 +386,12 @@ router.put('/:id', async (req, res) => {
 
 /**
  * DELETE /api/orders/:id
- * 删除订单(需要管理员权限)
+ * 删除订单(需要管理员权限或员工只能删除自己的订单)
  */
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', employeeOrderAuth, async (req, res) => {
   const t = await sequelize.transaction();
   
   try {
-    // 检查用户权限
-    const user = req.user; // 假设通过中间件已经获取了用户信息
-    
-    // 如果没有用户信息或用户角色不是admin/superadmin，拒绝操作
-    if (!user || (user.userRole !== 'admin' && user.userRole !== 'superadmin')) {
-      await t.rollback();
-      return res.status(403).json({ 
-        success: false, 
-        msg: 'Permission denied. Only administrators can delete orders.' 
-      });
-    }
-    
     // 在删除前先获取订单信息和订单项目
     const orderId = req.params.id;
     const order = await Order.findByPk(orderId, {
@@ -457,21 +459,10 @@ router.delete('/:id', async (req, res) => {
 
 /**
  * PUT /api/orders/:id/edit
- * 编辑订单信息和订单项（需要管理员权限）
+ * 编辑订单信息和订单项（需要管理员权限或员工只能编辑自己的订单）
  */
-router.put('/:id/edit', async (req, res) => {
+router.put('/:id/edit', employeeOrderAuth, async (req, res) => {
   try {
-    // 检查用户权限
-    const user = req.user;
-    
-    // 如果没有用户信息或用户角色不是admin/boss，拒绝操作
-    if (!user || (user.userRole !== 'admin' && user.userRole !== 'boss')) {
-      return res.status(403).json({ 
-        success: false, 
-        msg: 'Permission denied. Only administrators can edit orders.' 
-      });
-    }
-    
     const orderId = req.params.id;
     const { customerId, items, remark } = req.body;
     
@@ -657,7 +648,7 @@ router.put('/:id/edit', async (req, res) => {
  * GET /api/orders/:id/pdf
  * 生成订单PDF并下载
  */
-router.get('/:id/pdf', async (req, res) => {
+router.get('/:id/pdf', employeeOrderAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const order = await Order.findByPk(id, {

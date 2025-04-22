@@ -3,6 +3,7 @@ import { handleError } from '../utils/errorHandler';
 
 /**
  * 获取订单列表，支持筛选和分页
+ * 注意：员工用户只能查看自己创建的订单
  * @param {string} orderType - 订单类型 (QUOTE/SALES)
  * @param {boolean} isPaid - 是否已支付
  * @param {boolean} isCompleted - 是否已完成
@@ -33,7 +34,12 @@ export const fetchOrders = async (orderType, isPaid, isCompleted, customerName, 
   }
 };
 
-// 获取单个订单详情
+/**
+ * 获取单个订单详情
+ * 注意：员工用户只能查看自己创建的订单
+ * @param {number} orderId - 订单ID
+ * @returns {Promise<Object>} 返回订单详情
+ */
 export const fetchOrderDetail = async (orderId) => {
   try {
     const response = await instance.get(`/orders/${orderId}`);
@@ -43,7 +49,13 @@ export const fetchOrderDetail = async (orderId) => {
   }
 };
 
-// 更新订单状态
+/**
+ * 更新订单状态
+ * 注意：员工用户只能更新自己创建的订单
+ * @param {number} orderId - 订单ID
+ * @param {Object} statusData - 状态数据
+ * @returns {Promise<Object>} 返回更新结果
+ */
 export const updateOrderStatus = async (orderId, statusData) => {
   try {
     // 确保数据格式正确，支持order_type字段用于报价单转销售单
@@ -60,7 +72,13 @@ export const updateOrderStatus = async (orderId, statusData) => {
   }
 };
 
-// 编辑订单详情
+/**
+ * 编辑订单详情
+ * 注意：员工用户只能编辑自己创建的订单
+ * @param {number} orderId - 订单ID
+ * @param {Object} updateData - 更新数据
+ * @returns {Promise<Object>} 返回更新结果
+ */
 export const updateOrder = async (orderId, updateData) => {
   try {
     const response = await instance.put(`/orders/${orderId}/edit`, updateData);
@@ -70,9 +88,15 @@ export const updateOrder = async (orderId, updateData) => {
   }
 };
 
-// 创建新订单
+/**
+ * 创建新订单
+ * 创建订单时会自动使用当前登录用户的ID作为订单创建者
+ * @param {Object} orderData - 订单数据
+ * @returns {Promise<Object>} 返回创建结果
+ */
 export const createOrder = async (orderData) => {
   try {
+    // 使用当前登录用户创建订单，不需要额外指定user_id
     const response = await instance.post('/orders', orderData);
     return response.data;
   } catch (error) {
@@ -80,7 +104,12 @@ export const createOrder = async (orderData) => {
   }
 };
 
-// 删除订单
+/**
+ * 删除订单
+ * 注意：员工用户只能删除自己创建的订单
+ * @param {number} orderId - 订单ID
+ * @returns {Promise<Object>} 返回删除结果
+ */
 export const deleteOrder = async (orderId) => {
   try {
     const response = await instance.delete(`/orders/${orderId}`);
@@ -90,7 +119,12 @@ export const deleteOrder = async (orderId) => {
   }
 };
 
-// 生成订单PDF
+/**
+ * 生成订单PDF
+ * 注意：员工用户只能为自己创建的订单生成PDF
+ * @param {number} orderId - 订单ID
+ * @returns {Promise<Object>} 返回生成结果
+ */
 export const generateOrderPDF = async (orderId) => {
   try {
     const response = await instance.get(`/orders/${orderId}/pdf`, {
@@ -113,7 +147,12 @@ export const generateOrderPDF = async (orderId) => {
   }
 };
 
-// 获取报价订单列表（最多10条）
+/**
+ * 获取报价订单列表
+ * 注意：员工用户只能看到自己创建的报价单
+ * @param {number} limit - 限制数量
+ * @returns {Promise<Object>} 返回订单列表
+ */
 export const fetchQuoteOrders = async (limit = 10) => {
   try {
     const response = await instance.get('/orders', {
@@ -129,7 +168,12 @@ export const fetchQuoteOrders = async (limit = 10) => {
   }
 };
 
-// 获取未完成订单列表（最多10条）
+/**
+ * 获取未完成订单列表
+ * 注意：员工用户只能看到自己创建的未完成订单
+ * @param {number} limit - 限制数量
+ * @returns {Promise<Object>} 返回订单列表
+ */
 export const fetchIncompleteOrders = async (limit = 10) => {
   try {
     const response = await instance.get('/orders', {
@@ -146,7 +190,12 @@ export const fetchIncompleteOrders = async (limit = 10) => {
   }
 };
 
-// 获取未付款订单列表（最多10条）
+/**
+ * 获取未付款订单列表
+ * 注意：员工用户只能看到自己创建的未付款订单
+ * @param {number} limit - 限制数量
+ * @returns {Promise<Object>} 返回订单列表
+ */
 export const fetchUnpaidOrders = async (limit = 10) => {
   try {
     const response = await instance.get('/orders', {
@@ -163,7 +212,12 @@ export const fetchUnpaidOrders = async (limit = 10) => {
   }
 };
 
-// 将报价单转换为销售单
+/**
+ * 将报价单转换为销售单
+ * 注意：员工用户只能转换自己创建的报价单
+ * @param {number} orderId - 订单ID
+ * @returns {Promise<Object>} 返回转换结果
+ */
 export const convertQuoteToSalesOrder = async (orderId) => {
   try {
     const response = await instance.put(`/orders/${orderId}`, {
@@ -175,7 +229,12 @@ export const convertQuoteToSalesOrder = async (orderId) => {
   }
 };
 
-// 标记订单为已完成
+/**
+ * 标记订单为已完成
+ * 注意：员工用户只能标记自己创建的订单
+ * @param {number} orderId - 订单ID
+ * @returns {Promise<Object>} 返回更新结果
+ */
 export const markOrderAsCompleted = async (orderId) => {
   try {
     const response = await instance.put(`/orders/${orderId}`, {
@@ -187,7 +246,12 @@ export const markOrderAsCompleted = async (orderId) => {
   }
 };
 
-// 标记订单为已付款
+/**
+ * 标记订单为已付款
+ * 注意：员工用户只能标记自己创建的订单
+ * @param {number} orderId - 订单ID
+ * @returns {Promise<Object>} 返回更新结果
+ */
 export const markOrderAsPaid = async (orderId) => {
   try {
     const response = await instance.put(`/orders/${orderId}`, {
