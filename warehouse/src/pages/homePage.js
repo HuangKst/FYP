@@ -220,7 +220,7 @@ export default function Home() {
         )}
 
         {/* 库存饼图区域 */}
-        <MDBox mt={4.5}>
+        <MDBox mt={3}>
           <Grid container spacing={3} mb={4}>
             <Grid item xs={12} md={6}>
               <InventoryPieChart 
@@ -239,7 +239,7 @@ export default function Home() {
 
         {/* 图表区域 - 仅对管理员和非employee角色显示 */}
         {!isEmployee && (
-          <MDBox mt={4.5}>
+          <MDBox mt={3}>
             <Grid container spacing={3} mb={4}>
               <Grid item xs={12} md={4}>
                 <SalesChart />

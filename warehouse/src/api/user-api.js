@@ -101,3 +101,46 @@ export const updateUserPassword = async (userId, newPassword) => {
     return handleError(error, 'Failed to update password');
   }
 };
+
+// Update user role
+export const updateUserRole = async (userId, newRole) => {
+  try {
+    // 确保API请求包含认证令牌
+    const response = await instance.put(`/users/${userId}`, {
+      role: newRole
+    });
+    
+    // The backend returns a different format for this endpoint
+    if (response.data.code === 200) {
+      return {
+        success: true,
+        msg: 'Role updated successfully'
+      };
+    } else {
+      return {
+        success: false,
+        msg: response.data.msg || 'Failed to update role'
+      };
+    }
+  } catch (error) {
+    console.error('Error updating role:', error);
+    
+    // Check for unauthorized error
+    if (error.response && error.response.status === 401) {
+      return {
+        success: false,
+        msg: 'Unauthorized. Please login again.'
+      };
+    }
+    
+    // Check for forbidden error
+    if (error.response && error.response.status === 403) {
+      return {
+        success: false,
+        msg: 'Access denied. You do not have permission to update user roles.'
+      };
+    }
+    
+    return handleError(error, 'Failed to update role');
+  }
+};

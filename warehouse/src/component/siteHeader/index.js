@@ -102,16 +102,16 @@ const SiteHeader = () => {
           </IconButton>
         ) : (
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <Button color="inherit" component={Link} to="/home">Home</Button>
-            <Button color="inherit" component={Link} to="/inventory">Inventory</Button>
-            <Button color="inherit" component={Link} to="/orders">Orders</Button>
-            <Button color="inherit" component={Link} to="/create-order">Create Order</Button>
-            <Button color="inherit" component={Link} to="/customer">Customer</Button>
+            <Button color="inherit" component={Link} to="/home" startIcon={<HomeIcon />}>Home</Button>
+            <Button color="inherit" component={Link} to="/inventory" startIcon={<InventoryIcon />}>Inventory</Button>
+            <Button color="inherit" component={Link} to="/orders" startIcon={<ShoppingCartIcon />}>Orders</Button>
+            <Button color="inherit" component={Link} to="/create-order" startIcon={<AddShoppingCartIcon />}>Create Order</Button>
+            <Button color="inherit" component={Link} to="/customer" startIcon={<PeopleIcon />}>Customer</Button>
             
             {/* 只有管理员和老板可以看到这些按钮 */}
             {hasAdminPermission && (
               <>
-                <Button color="inherit" component={Link} to="/employee">Employee</Button>
+                <Button color="inherit" component={Link} to="/employee" startIcon={<BadgeIcon />}>Employee</Button>
               </>
             )}
             

@@ -5,6 +5,8 @@ import jwt from 'jsonwebtoken';
 import User from '../Models/userModel.js';
 import authenticate from '../authenticate/index.js';
 import adminAuth from '../authenticate/adminAuth.js';
+import { Op } from 'sequelize';
+import { sequelize } from '../db/index.js';
 
 
 const router = express.Router();
@@ -22,26 +24,40 @@ router.get('/employees', authenticate, adminAuth, asyncHandler(async (req, res) 
     const pageSize = parseInt(req.query.pageSize) || 10;
     const offset = (page - 1) * pageSize;
     
-    // 测试查询是否可以正常工作
-    console.log('Querying employee users with role=employee');
+    // 根据当前用户的角色决定返回什么数据
+    console.log(`Querying users with currentUserRole=${req.user.userRole}`);
+    
+    let whereCondition = {};
+    
+    // 如果是boss角色，可以查看除了自己以外的所有用户
+    if (req.user.userRole === 'boss') {
+      // 排除当前用户自己
+      whereCondition = {
+        id: { [Op.ne]: req.user.userId }
+      };
+      console.log('Boss role: returning all users except self');
+    } 
+    // 如果是admin角色，只能查看employee角色的用户
+    else {
+      whereCondition = { role: 'employee' };
+      console.log('Admin role: returning only employee users');
+    }
     
     // 计算employee用户总数
-    const count = await User.count({
-      where: { role: 'employee' }
-    });
+    const count = await User.count({ where: whereCondition });
     
-    console.log(`Found ${count} employee users`);
+    console.log(`Found ${count} users matching criteria`);
     
     // 获取分页后的employee用户
     const employees = await User.findAll({
-      where: { role: 'employee' },
+      where: whereCondition,
       attributes: ['id', 'username', 'status', 'role', 'created_at', 'updated_at'],
       limit: pageSize,
       offset: offset,
       order: [['created_at', 'DESC']]
     });
     
-    console.log(`Returning ${employees.length} employee users for page ${page}`);
+    console.log(`Returning ${employees.length} users for page ${page}`);
     
     return res.status(200).json({
       success: true,
@@ -54,10 +70,10 @@ router.get('/employees', authenticate, adminAuth, asyncHandler(async (req, res) 
       }
     });
   } catch (error) {
-    console.error('Error fetching employee users:', error);
+    console.error('Error fetching users:', error);
     return res.status(500).json({ 
       success: false, 
-      msg: 'Failed to fetch employee users: ' + error.message,
+      msg: 'Failed to fetch users: ' + error.message,
       users: []
     });
   }
@@ -152,22 +168,51 @@ router.post('/', asyncHandler(async (req, res) => {
 }));
 
 // 更新用户 (PUT /api/users/:id)
-router.put('/:id', asyncHandler(async (req, res) => {
-  const userId = req.params.id;
-  // 不能直接更新主键id等，你可自行控制
-  delete req.body.id;
-  delete req.body.created_at;
-  delete req.body.updated_at;
+router.put('/:id', authenticate, asyncHandler(async (req, res) => {
+  try {
+    // Check if the current user is a boss
+    if (req.user.userRole !== 'boss') {
+      return res.status(403).json({ 
+        success: false, 
+        code: 403,
+        msg: 'Only boss users can update other users\' roles' 
+      });
+    }
 
-  const [updateCount] = await User.update(
-    { ...req.body },
-    { where: { id: userId } }
-  );
+    // Check if the user exists
+    const targetUser = await User.findByPk(req.params.id);
+    if (!targetUser) {
+      return res.status(404).json({ 
+        success: false,
+        code: 404,
+        msg: 'User not found' 
+      });
+    }
+    
+    const userId = req.params.id;
+    // 不能直接更新主键id等，你可自行控制
+    delete req.body.id;
+    delete req.body.created_at;
+    delete req.body.updated_at;
+    delete req.body.password; // Do not update password through this endpoint
 
-  if (updateCount > 0) {
-    res.status(200).json({ code: 200, msg: 'User Updated Successfully' });
-  } else {
-    res.status(404).json({ code: 404, msg: 'Unable to Update User' });
+    const [updateCount] = await User.update(
+      { ...req.body },
+      { where: { id: userId } }
+    );
+
+    if (updateCount > 0) {
+      res.status(200).json({ code: 200, msg: 'User Updated Successfully' });
+    } else {
+      res.status(404).json({ code: 404, msg: 'Unable to Update User' });
+    }
+  } catch (error) {
+    console.error('Error updating user:', error);
+    return res.status(500).json({ 
+      success: false, 
+      code: 500,
+      msg: 'Failed to update user: ' + error.message 
+    });
   }
 }));
 

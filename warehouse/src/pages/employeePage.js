@@ -26,7 +26,6 @@ import { useNavigate } from 'react-router-dom';
 import DeleteIcon from '@mui/icons-material/Delete';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import SearchIcon from '@mui/icons-material/Search';
-import KeyIcon from '@mui/icons-material/Key';
 import { AuthContext } from '../contexts/authContext';
 import { 
   getAllEmployees, 
@@ -34,21 +33,16 @@ import {
   deleteEmployee
 } from '../api/employeeApi';
 import { fetchPendingUsers, approveUser } from '../api/pendingUserApi';
-import { fetchEmployeeUsers, updateUserPassword } from '../api/user-api';
 import Pagination from '../component/Pagination';
+import UserManager from '../component/employee/userManager';
 
 const EmployeePage = () => {
   const navigate = useNavigate();
   const { role } = useContext(AuthContext);
   const [employees, setEmployees] = useState([]);
   const [pendingUsers, setPendingUsers] = useState([]);
-  const [employeeUsers, setEmployeeUsers] = useState([]);
   const [tabValue, setTabValue] = useState(0);
   const [openDialog, setOpenDialog] = useState(false);
-  const [openPasswordDialog, setOpenPasswordDialog] = useState(false);
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [searchName, setSearchName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -64,16 +58,6 @@ const EmployeePage = () => {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [pagination, setPagination] = useState({
-    total: 0,
-    page: 1,
-    pageSize: 10,
-    totalPages: 1
-  });
-
-  // 用户管理分页状态
-  const [userPage, setUserPage] = useState(1);
-  const [userPageSize, setUserPageSize] = useState(10);
-  const [userPagination, setUserPagination] = useState({
     total: 0,
     page: 1,
     pageSize: 10,
@@ -128,43 +112,14 @@ const EmployeePage = () => {
     }
   }, [hasPermission]);
 
-  // 获取普通用户（employee角色）
-  const fetchUsers = useCallback(async () => {
-    if (!hasPermission) return;
-    
-    setLoading(true);
-    try {
-      const result = await fetchEmployeeUsers(userPage, userPageSize);
-      if (result.success) {
-        setEmployeeUsers(result.users || []);
-        setUserPagination(result.pagination || {
-          total: 0,
-          page: userPage,
-          pageSize: userPageSize,
-          totalPages: 0
-        });
-      } else {
-        showSnackbar(result.msg || 'Failed to get user list', 'error');
-        console.warn('User API error:', result.msg);
-      }
-    } catch (error) {
-      showSnackbar('Failed to get user list', 'error');
-      console.error('User API access failed:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [hasPermission, userPage, userPageSize]);
-  
   // Load data
   useEffect(() => {
     if (tabValue === 0) {
       fetchEmployees();
     } else if (tabValue === 1) {
       fetchPending();
-    } else if (tabValue === 2) {
-      fetchUsers();
     }
-  }, [fetchEmployees, fetchPending, fetchUsers, tabValue, page, pageSize, userPage, userPageSize]);
+  }, [fetchEmployees, fetchPending, tabValue, page, pageSize]);
 
   // Handle employee operations
   const handleAddEmployee = async () => {
@@ -216,45 +171,6 @@ const EmployeePage = () => {
       }
     } catch (error) {
       showSnackbar('Operation failed', 'error');
-    }
-  };
-
-  // 处理打开修改密码对话框
-  const handleOpenPasswordDialog = (user) => {
-    setSelectedUser(user);
-    setNewPassword('');
-    setConfirmPassword('');
-    setOpenPasswordDialog(true);
-  };
-
-  // 处理密码更新
-  const handleUpdatePassword = async () => {
-    // 验证密码
-    if (!newPassword) {
-      showSnackbar('Please enter a new password', 'error');
-      return;
-    }
-    
-    if (newPassword !== confirmPassword) {
-      showSnackbar('Passwords do not match', 'error');
-      return;
-    }
-    
-    if (newPassword.length < 6) {
-      showSnackbar('Password must be at least 6 characters', 'error');
-      return;
-    }
-    
-    try {
-      const result = await updateUserPassword(selectedUser.id, newPassword);
-      if (result.success) {
-        setOpenPasswordDialog(false);
-        showSnackbar('Password updated successfully', 'success');
-      } else {
-        showSnackbar(result.msg || 'Failed to update password', 'error');
-      }
-    } catch (error) {
-      showSnackbar('Failed to update password', 'error');
     }
   };
 
@@ -321,16 +237,6 @@ const EmployeePage = () => {
     setPage(1); // Reset to first page
   };
 
-  // 用户管理分页处理
-  const handleUserPageChange = (newPage) => {
-    setUserPage(newPage);
-  };
-
-  const handleUserPageSizeChange = (newPageSize) => {
-    setUserPageSize(newPageSize);
-    setUserPage(1);
-  };
-
   // If no permission, show access denied message
   if (!hasPermission) {
     return (
@@ -369,8 +275,13 @@ const EmployeePage = () => {
           </Typography>
         </Paper>
 
-        <Box sx={{ flex: 1, p: 3, backgroundColor: '#f5f5f5', overflowY: 'auto' }}>
-          <Paper sx={{ height: '100%', borderRadius: 2 }}>
+        <Box sx={{ flex: 1, p: 3, backgroundColor: '#f5f5f5' }}>
+          <Paper sx={{ 
+            height: '100%', 
+            borderRadius: 2, 
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
             <Tabs 
               value={tabValue} 
               onChange={handleTabChange} 
@@ -406,7 +317,12 @@ const EmployeePage = () => {
               />
             </Tabs>
 
-            <Box sx={{ p: 3 }}>
+            <Box sx={{ 
+              p: 3, 
+              width: '100%', 
+              boxSizing: 'border-box',
+              flex: 1,
+            }}>
               {/* Employee List */}
               {tabValue === 0 && (
                 <Box>
@@ -445,21 +361,6 @@ const EmployeePage = () => {
 
                   <List sx={{ 
                     bgcolor: 'background.paper',
-                    maxHeight: 'calc(100vh - 320px)', // Adjusted to accommodate pagination
-                    overflowY: 'auto',
-                    '&::-webkit-scrollbar': {
-                      width: '8px',
-                    },
-                    '&::-webkit-scrollbar-track': {
-                      background: '#f1f1f1',
-                    },
-                    '&::-webkit-scrollbar-thumb': {
-                      background: '#888',
-                      borderRadius: '4px',
-                    },
-                    '&::-webkit-scrollbar-thumb:hover': {
-                      background: '#555',
-                    }
                   }}>
                     {loading ? (
                       <Box sx={{ p: 2, textAlign: 'center' }}>
@@ -566,21 +467,6 @@ const EmployeePage = () => {
               {/* Pending Approvals */}
               {tabValue === 1 && (
                 <List sx={{ 
-                  maxHeight: 'calc(100vh - 300px)',
-                  overflowY: 'auto',
-                  '&::-webkit-scrollbar': {
-                    width: '8px',
-                  },
-                  '&::-webkit-scrollbar-track': {
-                    background: '#f1f1f1',
-                  },
-                  '&::-webkit-scrollbar-thumb': {
-                    background: '#888',
-                    borderRadius: '4px',
-                  },
-                  '&::-webkit-scrollbar-thumb:hover': {
-                    background: '#555',
-                  }
                 }}>
                   {pendingUsers.map((user) => (
                     <Paper
@@ -663,100 +549,8 @@ const EmployeePage = () => {
 
               {/* User Management */}
               {tabValue === 2 && (
-                <Box>
-                  <List sx={{ 
-                    bgcolor: 'background.paper',
-                    maxHeight: 'calc(100vh - 320px)',
-                    overflowY: 'auto',
-                    '&::-webkit-scrollbar': {
-                      width: '8px',
-                    },
-                    '&::-webkit-scrollbar-track': {
-                      background: '#f1f1f1',
-                    },
-                    '&::-webkit-scrollbar-thumb': {
-                      background: '#888',
-                      borderRadius: '4px',
-                    },
-                    '&::-webkit-scrollbar-thumb:hover': {
-                      background: '#555',
-                    }
-                  }}>
-                    {loading ? (
-                      <Box sx={{ p: 2, textAlign: 'center' }}>
-                        <Typography>Loading...</Typography>
-                      </Box>
-                    ) : employeeUsers.length === 0 ? (
-                      <Box sx={{ p: 2, textAlign: 'center' }}>
-                        <Typography>No users found</Typography>
-                      </Box>
-                    ) : (
-                      employeeUsers.map((user) => (
-                        <React.Fragment key={user.id}>
-                          <ListItem
-                            sx={{
-                              borderRadius: 2,
-                              mb: 1,
-                              p: 2
-                            }}
-                            secondaryAction={
-                              <IconButton
-                                edge="end"
-                                aria-label="change password"
-                                onClick={() => handleOpenPasswordDialog(user)}
-                                sx={{
-                                  color: 'primary.main',
-                                  '&:hover': {
-                                    color: 'primary.dark',
-                                  }
-                                }}
-                              >
-                                <KeyIcon />
-                              </IconButton>
-                            }
-                          >
-                            <Avatar 
-                              sx={{ 
-                                mr: 2, 
-                                bgcolor: getRandomColor(user.username),
-                                width: 40,
-                                height: 40
-                              }}
-                            >
-                              {getInitials(user.username)}
-                            </Avatar>
-                            <ListItemText
-                              primary={
-                                <Typography variant="subtitle1" sx={{ fontWeight: 'medium' }}>
-                                  {user.username}
-                                </Typography>
-                              }
-                              secondary={
-                                <Box sx={{ mt: 0.5 }}>
-                                  <Typography 
-                                    variant="body2" 
-                                    color="text.secondary"
-                                    component="span"
-                                    sx={{ mr: 2 }}
-                                  >
-                                    Role: Employee
-                                  </Typography>
-                                </Box>
-                              }
-                            />
-                          </ListItem>
-                          <Divider component="li" sx={{ opacity: 0.5 }} />
-                        </React.Fragment>
-                      ))
-                    )}
-                  </List>
-                  
-                  {/* Pagination component for users */}
-                  <Pagination 
-                    pagination={userPagination}
-                    onPageChange={handleUserPageChange}
-                    onPageSizeChange={handleUserPageSizeChange}
-                  />
+                <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+                  <UserManager />
                 </Box>
               )}
             </Box>
@@ -837,66 +631,6 @@ const EmployeePage = () => {
             }}
           >
             Add
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Change Password Dialog */}
-      <Dialog 
-        open={openPasswordDialog} 
-        onClose={() => setOpenPasswordDialog(false)}
-        PaperProps={{
-          sx: { borderRadius: 2 }
-        }}
-      >
-        <DialogTitle>Change Password</DialogTitle>
-        <DialogContent>
-          {selectedUser && (
-            <Box sx={{ mt: 1 }}>
-              <Typography variant="subtitle1" sx={{ mb: 2 }}>
-                User: {selectedUser.username}
-              </Typography>
-              <TextField
-                autoFocus
-                margin="dense"
-                label="New Password"
-                type="password"
-                fullWidth
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                sx={{ mb: 2 }}
-              />
-              <TextField
-                margin="dense"
-                label="Confirm Password"
-                type="password"
-                fullWidth
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-              />
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button 
-            onClick={() => setOpenPasswordDialog(false)} 
-            sx={{ 
-              textTransform: 'none',
-              borderRadius: 2
-            }}
-          >
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleUpdatePassword} 
-            variant="contained"
-            color="primary"
-            sx={{ 
-              textTransform: 'none',
-              borderRadius: 2
-            }}
-          >
-            Update
           </Button>
         </DialogActions>
       </Dialog>
