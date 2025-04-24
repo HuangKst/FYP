@@ -26,10 +26,13 @@ import {
     ListItem,
     ListItemText,
     Divider,
-    Box
+    Box,
+    Snackbar,
+    Alert
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import { useNavigate } from 'react-router-dom';
 import { createOrder } from '../api/orderApi';
 import { fetchInventory, fetchMaterials, fetchAllInventory } from '../api/inventoryApi';
@@ -100,6 +103,14 @@ const CreateOrderPage = () => {
     const [confirmDialog, setConfirmDialog] = useState(false);
     const [inventoryDialog, setInventoryDialog] = useState(false);
     const [insufficientItems, setInsufficientItems] = useState([]);
+    
+    // 添加 Snackbar 状态
+    const [snackbar, setSnackbar] = useState({
+        open: false,
+        message: '',
+        severity: 'success',
+        orderNumber: ''
+    });
     
     // 订单基本信息
     const [orderType, setOrderType] = useState('QUOTE'); // 默认为报价单
@@ -490,6 +501,11 @@ const CreateOrderPage = () => {
         navigate('/inventory');
     };
 
+    // 添加关闭 Snackbar 的函数
+    const handleCloseSnackbar = () => {
+        setSnackbar({ ...snackbar, open: false });
+    };
+
     // 确认并提交订单
     const confirmSubmit = async () => {
         setLoading(true);
@@ -517,14 +533,35 @@ const CreateOrderPage = () => {
             const response = await createOrder(orderData);
             
             if (response.success) {
-                alert(`Order created successfully! Order Number: ${response.order_number || response.orderId}`);
-                navigate('/orders');
+                // 替换 alert 为 Snackbar
+                const orderNumber = response.order_number || response.orderId;
+                setSnackbar({
+                    open: true,
+                    message: `Order created successfully!`,
+                    severity: 'success',
+                    orderNumber: orderNumber
+                });
+                
+                // 短暂延迟后导航到订单列表页面
+                setTimeout(() => {
+                    navigate('/orders');
+                }, 1500);
             } else {
-                alert('Failed to create order: ' + (response.msg || 'Unknown error'));
+                setSnackbar({
+                    open: true,
+                    message: 'Failed to create order: ' + (response.msg || 'Unknown error'),
+                    severity: 'error',
+                    orderNumber: ''
+                });
             }
         } catch (error) {
             console.error('Error creating order:', error);
-            alert('Failed to create order: ' + error.message);
+            setSnackbar({
+                open: true,
+                message: 'Failed to create order: ' + error.message,
+                severity: 'error',
+                orderNumber: ''
+            });
         } finally {
             setLoading(false);
             setConfirmDialog(false);
@@ -850,6 +887,39 @@ const CreateOrderPage = () => {
                     </Button>
                 </DialogActions>
             </Dialog>
+            
+            {/* 添加成功提示 Snackbar */}
+            <Snackbar
+                open={snackbar.open}
+                autoHideDuration={4000}
+                onClose={handleCloseSnackbar}
+                anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+            >
+                <Alert
+                    onClose={handleCloseSnackbar}
+                    severity={snackbar.severity}
+                    sx={{ 
+                        width: '100%',
+                        alignItems: 'center',
+                        '& .MuiAlert-message': {
+                            display: 'flex',
+                            alignItems: 'center'
+                        }
+                    }}
+                    iconMapping={{
+                        success: <CheckCircleOutlineIcon fontSize="inherit" />
+                    }}
+                >
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        {snackbar.message}
+                        {snackbar.orderNumber && (
+                            <Typography component="span" sx={{ ml: 1, fontWeight: 'bold' }}>
+                                Order Number: {snackbar.orderNumber}
+                            </Typography>
+                        )}
+                    </Box>
+                </Alert>
+            </Snackbar>
         </Container>
     );
 };

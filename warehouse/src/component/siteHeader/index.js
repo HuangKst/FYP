@@ -29,6 +29,7 @@ import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import AddShoppingCartIcon from '@mui/icons-material/AddShoppingCart';
 import PeopleIcon from '@mui/icons-material/People';
 import BadgeIcon from '@mui/icons-material/Badge';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import logo from "../../picture/logo.png";
 import { AuthContext } from "../../contexts/authContext";
 
@@ -76,6 +77,11 @@ const SiteHeader = () => {
     menuItems.push({ text: 'Employee', icon: <BadgeIcon />, path: '/employee' });
   }
 
+  // 添加 Profile 菜单，仅对 boss 可见
+  if (role === 'boss') {
+    menuItems.push({ text: 'Profile', icon: <AccountCircleIcon />, path: '/profile' });
+  }
+
   const handleNavigation = (path) => {
     navigate(path);
     setDrawerOpen(false);
@@ -113,6 +119,11 @@ const SiteHeader = () => {
               <>
                 <Button color="inherit" component={Link} to="/employee" startIcon={<BadgeIcon />}>Employee</Button>
               </>
+            )}
+            
+            {/* 只有boss可以看到Profile按钮 */}
+            {role === 'boss' && (
+              <Button color="inherit" component={Link} to="/profile" startIcon={<AccountCircleIcon />}>Profile</Button>
             )}
             
             <Tooltip title="Logout">

@@ -18,6 +18,8 @@ const router = express.Router();
 // Initialize database - API endpoint
 router.post('/init-database', async (req, res) => {
   try {
+    // 删除所有现有材料价格记录
+    await DailyMaterialPrice.destroy({ where: {}, truncate: true });
     // Get 6 months of data and update all material prices (default 180 days)
     const savedRecords = await updateAllMaterialPrices();
     
