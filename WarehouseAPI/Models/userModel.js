@@ -1,6 +1,6 @@
 import { DataTypes, Model } from 'sequelize';
 import { sequelize } from '../db/index.js';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { validatePasswordStrength } from '../utils/passwordValidator.js';
 class User extends Model {
   // 比较密码方法
