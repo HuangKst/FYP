@@ -3,8 +3,8 @@ import { AuthContext } from "../contexts/authContext";
 import { useNavigate, Link } from "react-router-dom";
 import { Box, TextField, Button, Typography, Alert, Paper } from "@mui/material";
 import logo from "../picture/logo.png"; // Import your logo image
-// import ReCAPTCHA from "react-google-recaptcha"; // Import reCAPTCHA component
-// import { RECAPTCHA_SITE_KEY } from "../config";
+import ReCAPTCHA from "react-google-recaptcha"; // Import reCAPTCHA component
+import { RECAPTCHA_SITE_KEY } from "../config";
 
 // 添加 Orbitron 字体
 const orbitronStyle = {
@@ -25,29 +25,28 @@ export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  // const [captchaValue, setCaptchaValue] = useState(null);
-  // const [showCaptcha, setShowCaptcha] = useState(false);
+  const [captchaValue, setCaptchaValue] = useState(null);
+  const [showCaptcha, setShowCaptcha] = useState(false);
   const [loginAttempts, setLoginAttempts] = useState(0);
-  // const siteKey = RECAPTCHA_SITE_KEY;
+  const siteKey = RECAPTCHA_SITE_KEY;
 
   // Function to handle CAPTCHA change
-  // const handleCaptchaChange = (value) => {
-  //   setCaptchaValue(value);
-  // };
+  const handleCaptchaChange = (value) => {
+    setCaptchaValue(value);
+  };
 
   const onSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
     // Check if we need to validate CAPTCHA
-    // if (showCaptcha && !captchaValue) {
-    //   setError("Please complete the CAPTCHA verification");
-    //   return;
-    // }
+    if (showCaptcha && !captchaValue) {
+      setError("Please complete the CAPTCHA verification");
+      return;
+    }
 
     // Include CAPTCHA token in login request if available
-    // const result = await handleLogin(username, password, captchaValue);
-    const result = await handleLogin(username, password, null);
+    const result = await handleLogin(username, password, captchaValue);
     console.log("Login result:", result);
     
     if (result.success) {
@@ -55,9 +54,9 @@ export default function LoginPage() {
       navigate("/home");
     } else {
       // Show CAPTCHA after first failed attempt
-      // if (!showCaptcha) {
-      //   setShowCaptcha(true);
-      // }
+      if (!showCaptcha) {
+        setShowCaptcha(true);
+      }
       
       // Increment login attempts counter
       setLoginAttempts(prev => prev + 1);
@@ -70,10 +69,10 @@ export default function LoginPage() {
       }
       
       // Reset CAPTCHA
-      // if (captchaValue) {
-      //   setCaptchaValue(null);
-      //   // If we have a recaptcha ref, we could reset it here
-      // }
+      if (captchaValue) {
+        setCaptchaValue(null);
+        // If we have a recaptcha ref, we could reset it here
+      }
     }
   };
 
@@ -179,7 +178,7 @@ export default function LoginPage() {
           />
 
           {/* Show CAPTCHA after first failed attempt */}
-          {/* {showCaptcha && (
+          {showCaptcha && (
             <Box sx={{ 
               width: "100%", 
               display: "flex", 
@@ -191,7 +190,7 @@ export default function LoginPage() {
                 onChange={handleCaptchaChange}
               />
             </Box>
-          )} */}
+          )}
 
           {error && (
             <Alert severity="error" sx={{ marginBottom: 1 }}>

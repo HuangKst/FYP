@@ -30,7 +30,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const handleLogin = async (username, password, captchaToken = null) => {
-    const result = await login(username, password);
+    const result = await login(username, password, captchaToken);
     if (result && result.success) {
       const { token, user } = result;
       setToken(token);

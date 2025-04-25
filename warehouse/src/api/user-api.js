@@ -5,10 +5,13 @@ import instance from './axios';
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 
 // Login request
-export const login = async (username, password) => {
+export const login = async (username, password, captchaToken = null) => {
   try {
-    // 删除captchaToken相关逻辑
+    // Include captchaToken in the request body if provided
     const requestBody = { username, password };
+    if (captchaToken) {
+      requestBody.captchaToken = captchaToken;
+    }
     
     const response = await axios.post(`${API_BASE_URL}/users`, requestBody);
     return response.data;
