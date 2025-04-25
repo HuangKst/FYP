@@ -1,5 +1,6 @@
 import express from 'express';
-import EmployeeOvertime from '../Models/employeeOvertimeModel.js';
+import EmployeeOvertime from '../Models/employeeOverTimeModel.js';
+
 import Employee from '../Models/employeeModel.js';
 import { Op } from 'sequelize';
 import { generatePDF, sendPDFResponse, handlePDFError } from '../utils/pdfGenerator.js';

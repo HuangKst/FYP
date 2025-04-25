@@ -2,7 +2,7 @@ import express from 'express';
 import Employee from '../Models/employeeModel.js';
 import { Op } from 'sequelize';
 import PDFDocument from 'pdfkit';
-import EmployeeOvertime from '../Models/employeeOvertimeModel.js';
+import EmployeeOvertime from '../Models/employeeOverTimeModel.js';
 import EmployeeLeave from '../Models/employeeLeaveModel.js';
 
 const router = express.Router();
