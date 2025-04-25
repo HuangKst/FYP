@@ -280,10 +280,10 @@ async function authenticateUser(req, res) {
   try {
     const LOCK_THRESHOLD = 5;           // Maximum failed attempts before lockout
     const LOCK_DURATION = 30 * 60 * 1000; // 30 minutes lockout duration
-    const CAPTCHA_THRESHOLD = 2;        // After this many failed attempts, require CAPTCHA
+    // const CAPTCHA_THRESHOLD = 999;        // 临时禁用reCAPTCHA验证
     
     const { username, password, captchaToken } = req.body;
-    const secretKey = process.env.RECAPTCHA_SECRET_KEY;
+    // const secretKey = process.env.RECAPTCHA_SECRET_KEY;
 
     // 1. Find user
     const user = await User.findByUserName(username);
@@ -312,6 +312,7 @@ async function authenticateUser(req, res) {
       }
     }
 
+    /* 
     // 3. Check if CAPTCHA is required but not provided
     if (user.failedLoginAttempts >= CAPTCHA_THRESHOLD && !captchaToken) {
       return res.status(400).json({
@@ -352,6 +353,7 @@ async function authenticateUser(req, res) {
         });
       }
     }
+    */
 
     // 5. Verify password
     const isMatch = await user.comparePassword(password);
@@ -367,7 +369,7 @@ async function authenticateUser(req, res) {
           success: false, 
           msg: 'Wrong password.',
           attemptsLeft: LOCK_THRESHOLD - user.failedLoginAttempts,
-          requireCaptcha: user.failedLoginAttempts >= CAPTCHA_THRESHOLD
+          requireCaptcha: false // 禁用reCAPTCHA
         });
     }
 
