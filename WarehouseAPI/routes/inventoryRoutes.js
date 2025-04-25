@@ -126,7 +126,80 @@ router.post('/import',async (req, res) => {
       return res.status(400).json({ success: false, msg: 'Invalid inventory data' });
     }
 
-    for (const item of inventory) {
+    // Protection: limit to maximum 500 records per import
+    if (inventory.length > 500) {
+      return res.status(400).json({ success: false, msg: 'You can import at most 500 inventory items at once. Please split into smaller batches.' });
+    }
+
+    // Define function to detect potential malicious content (e.g., formulas)
+    const isFormulaLike = (str) => {
+      if (typeof str !== 'string') return false;
+      // Check if string starts with formula characters
+      return ['=', '+', '-', '@', '\\'].some(char => str.trim().startsWith(char));
+    };
+    
+    // Define function to validate that text contains only English letters, numbers, and allowed punctuation
+    const isValidText = (str) => {
+      if (typeof str !== 'string') return true;
+      // Allow letters, numbers, spaces, and basic punctuation
+      return /^[a-zA-Z0-9\s.,\-_()[\]#&*/\\:;?!$%@+]*$/.test(str);
+    };
+
+    // Validate each record to prevent malicious content or invalid format
+    for (const [idx, item] of inventory.entries()) {
+      const { material, specification, quantity, density } = item;
+      
+      // Check for formula injection
+      if (isFormulaLike(material)) {
+        return res.status(400).json({ success: false, msg: `Row ${idx+1} - material may contain a formula or unsafe content` });
+      }
+      if (isFormulaLike(specification)) {
+        return res.status(400).json({ success: false, msg: `Row ${idx+1} - specification may contain a formula or unsafe content` });
+      }
+      
+      // Validate only English characters and allowed punctuation
+      if (!isValidText(material)) {
+        return res.status(400).json({ success: false, msg: `Row ${idx+1} - material contains invalid characters` });
+      }
+      if (!isValidText(specification)) {
+        return res.status(400).json({ success: false, msg: `Row ${idx+1} - specification contains invalid characters` });
+      }
+      
+      // Validate required fields and types
+      if (!material || typeof material !== 'string' || material.length > 100) {
+        return res.status(400).json({ success: false, msg: `Row ${idx+1} - invalid material field` });
+      }
+      if (!specification || typeof specification !== 'string' || specification.length > 100) {
+        return res.status(400).json({ success: false, msg: `Row ${idx+1} - invalid specification field` });
+      }
+      const qty = parseFloat(quantity);
+      if (isNaN(qty) || qty < 0) {
+        return res.status(400).json({ success: false, msg: `Row ${idx+1} - invalid quantity field` });
+      }
+      if (density !== '' && density !== undefined) {
+        const den = parseFloat(density);
+        if (isNaN(den) || den < 0) {
+          return res.status(400).json({ success: false, msg: `Row ${idx+1} - invalid density field` });
+        }
+      }
+    }
+
+    // Sanitization: escape potential formulas and ensure only English characters
+    const sanitizedInventory = inventory.map(item => {
+      const sanitized = { ...item };
+      
+      // 如果字符串以公式字符开头，在前面添加单引号转义
+      if (typeof sanitized.material === 'string' && isFormulaLike(sanitized.material)) {
+        sanitized.material = "'" + sanitized.material;
+      }
+      if (typeof sanitized.specification === 'string' && isFormulaLike(sanitized.specification)) {
+        sanitized.specification = "'" + sanitized.specification;
+      }
+      
+      return sanitized;
+    });
+
+    for (const item of sanitizedInventory) {
       const { material, specification, quantity, density } = item;
 
       if (!material || !specification || !quantity) {
@@ -136,11 +209,9 @@ router.post('/import',async (req, res) => {
       const existingItem = await Inventory.findOne({ where: { material, specification } });
 
       if (existingItem) {
-        // 如果存在相同的材质和规格，更新数量和比重
         const newQuantity = (parseFloat(existingItem.quantity) + parseFloat(quantity)).toFixed(2);
         await existingItem.update({ quantity: newQuantity, density: density || existingItem.density });
       } else {
-        // 如果不存在，创建新记录
         await Inventory.create({ material, specification, quantity, density });
       }
     }

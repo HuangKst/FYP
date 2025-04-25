@@ -196,7 +196,15 @@ const InventoryPage = () => {
             loadInventory();
                 showSnackbar('Import successful', 'success');
             } else {
-                showSnackbar(result.msg || 'Import failed', 'error');
+                if (result.isSecurityWarning) {
+                    showSnackbar(
+                        `Security Warning: ${result.msg}`, 
+                        'warning',
+                        10000  // Show for 10 seconds for security warnings
+                    );
+                } else {
+                    showSnackbar(result.msg || 'Import failed', 'error');
+                }
             }
         } catch (error) {
             showSnackbar('Import failed', 'error');
@@ -222,8 +230,13 @@ const InventoryPage = () => {
     };
 
     // 显示提示消息
-    const showSnackbar = (message, severity = 'success') => {
-        setSnackbar({ open: true, message, severity });
+    const showSnackbar = (message, severity = 'success', duration = 6000) => {
+        setSnackbar({ 
+            open: true, 
+            message, 
+            severity,
+            autoHideDuration: duration
+        });
     };
 
     const handleCloseSnackbar = () => {
@@ -754,7 +767,7 @@ const InventoryPage = () => {
                 {/* Snackbar */}
                 <Snackbar
                     open={snackbar.open}
-                    autoHideDuration={6000}
+                    autoHideDuration={snackbar.autoHideDuration}
                     onClose={handleCloseSnackbar}
                     anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
                 >

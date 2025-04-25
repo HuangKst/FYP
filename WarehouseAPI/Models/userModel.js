@@ -49,6 +49,16 @@ User.init({
   status: {
     type: DataTypes.ENUM('pending','active','inactive'),
     defaultValue: 'pending'
+  },
+  // Track login attempts for account locking
+  failedLoginAttempts: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0
+  },
+  // Track the time of last failed login
+  lastFailedLoginAt: {
+    type: DataTypes.DATE,
+    allowNull: true
   }
 }, {
   sequelize,

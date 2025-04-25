@@ -7,7 +7,20 @@ import authenticate from '../authenticate/index.js';
 import adminAuth from '../authenticate/adminAuth.js';
 import { Op } from 'sequelize';
 import { sequelize } from '../db/index.js';
+import rateLimit from 'express-rate-limit';
+import axios from 'axios';  // 预先导入axios，避免动态导入可能导致的问题
 
+// Define login rate limiter
+const loginRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,  // 15 minutes window
+  max: 5,                    // limit each IP to 5 requests per windowMs
+  message: {
+    success: false,
+    msg: 'Too many login attempts from this IP, please try again after 15 minutes'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 const router = express.Router();
 
@@ -142,7 +155,8 @@ router.put('/:id/password', authenticate, adminAuth, asyncHandler(async (req, re
   }
 }));
 
-// 注册 or 登录 (POST /api/users?action=register / authenticate)
+// Register or Login (POST /api/users?action=register / authenticate)
+// Apply rate limiting only to login attempts, not registrations
 router.post('/', asyncHandler(async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -152,11 +166,14 @@ router.post('/', asyncHandler(async (req, res) => {
         .json({ success: false, msg: 'Username and password are required.' });
     }
 
-    // 判断是注册还是登录
+    // Determine if it's registration or login
     if (req.query.action === 'register') {
       await registerUser(req, res);
     } else {
-      await authenticateUser(req, res);
+      // Apply rate limiter to login attempts
+      loginRateLimiter(req, res, async () => {
+        await authenticateUser(req, res);
+      });
     }
     
   } catch (error) {
@@ -258,28 +275,103 @@ async function registerUser(req, res) {
   }
 }
 
-
-
-// 登录用户
+// Login user
 async function authenticateUser(req, res) {
   try {
-    // 1. 查找用户
-    const user = await User.findByUserName(req.body.username);
+    const LOCK_THRESHOLD = 5;           // Maximum failed attempts before lockout
+    const LOCK_DURATION = 30 * 60 * 1000; // 30 minutes lockout duration
+    const CAPTCHA_THRESHOLD = 2;        // After this many failed attempts, require CAPTCHA
+    
+    const { username, password, captchaToken } = req.body;
+    const secretKey = process.env.RECAPTCHA_SECRET_KEY;
+
+    // 1. Find user
+    const user = await User.findByUserName(username);
     if (!user) {
       return res
         .status(401)
         .json({ success: false, msg: 'Authentication failed. User not found.' });
     }
 
-    // 2. 验证密码
-    const isMatch = await user.comparePassword(req.body.password);
-    if (!isMatch) {
-      return res
-        .status(401)
-        .json({ success: false, msg: 'Wrong password.' });
+    // 2. Check if account is locked
+    if (user.failedLoginAttempts >= LOCK_THRESHOLD && user.lastFailedLoginAt) {
+      const timeSinceLastFailure = Date.now() - new Date(user.lastFailedLoginAt).getTime();
+      
+      if (timeSinceLastFailure < LOCK_DURATION) {
+        const minutesLeft = Math.ceil((LOCK_DURATION - timeSinceLastFailure) / 60000);
+        return res
+          .status(403)
+          .json({ 
+            success: false, 
+            msg: `Account is temporarily locked due to multiple failed login attempts. Please try again in ${minutesLeft} minutes.` 
+          });
+      } else {
+        // Reset counters if lock duration has passed
+        user.failedLoginAttempts = 0;
+        await user.save();
+      }
     }
 
-    // 3. 检查用户状态
+    // 3. Check if CAPTCHA is required but not provided
+    if (user.failedLoginAttempts >= CAPTCHA_THRESHOLD && !captchaToken) {
+      return res.status(400).json({
+        success: false,
+        msg: 'CAPTCHA verification required',
+        requireCaptcha: true,
+        attemptsLeft: LOCK_THRESHOLD - user.failedLoginAttempts
+      });
+    }
+
+    // 4. Validate CAPTCHA if provided
+    if (user.failedLoginAttempts >= CAPTCHA_THRESHOLD && captchaToken) {
+      try {
+        const verifyUrl = `https://www.google.com/recaptcha/api/siteverify`;
+        const formData = new URLSearchParams();
+        formData.append('secret', secretKey);
+        formData.append('response', captchaToken);
+        
+        const { data: verifyCaptchaResponse } = await axios.post(verifyUrl, formData, {
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+        });
+        
+        console.log('reCAPTCHA verification response:', verifyCaptchaResponse);
+        
+        if (!verifyCaptchaResponse.success) {
+          return res.status(400).json({
+            success: false,
+            msg: 'CAPTCHA verification failed',
+            requireCaptcha: true
+          });
+        }
+      } catch (error) {
+        console.error('Error verifying CAPTCHA:', error);
+        return res.status(500).json({
+          success: false,
+          msg: 'Error verifying CAPTCHA',
+          requireCaptcha: true
+        });
+      }
+    }
+
+    // 5. Verify password
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) {
+      // Increment failed login attempts
+      user.failedLoginAttempts += 1;
+      user.lastFailedLoginAt = new Date();
+      await user.save();
+      
+      return res
+        .status(401)
+        .json({ 
+          success: false, 
+          msg: 'Wrong password.',
+          attemptsLeft: LOCK_THRESHOLD - user.failedLoginAttempts,
+          requireCaptcha: user.failedLoginAttempts >= CAPTCHA_THRESHOLD
+        });
+    }
+
+    // 6. Check user status
     if (user.status === 'pending') {
       return res
         .status(403)
@@ -294,23 +386,28 @@ async function authenticateUser(req, res) {
         .json({ success: false, msg: 'Your account is unavailable.' });
     }
 
-    // 4. 生成 token 并返回用户信息
+    // 7. Reset failed login attempts on successful login
+    user.failedLoginAttempts = 0;
+    user.lastFailedLoginAt = null;
+    await user.save();
+
+    // 8. Generate token and return user information
     const token = jwt.sign(
       { 
         username: user.username, 
         userId: user.id,
-        userRole: user.role,  // 添加角色信息到 token
+        userRole: user.role,
         userStatus: user.status
       },
       process.env.SECRET
     );
 
-    // 返回统一的用户信息格式
+    // Return unified user information format
     const userInfo = {
       userId: user.id,
       username: user.username,
       userStatus: user.status,
-      userRole: user.role  // 使用数据库中的 role 字段
+      userRole: user.role
     };
 
     return res.status(200).json({
@@ -326,6 +423,5 @@ async function authenticateUser(req, res) {
     });
   }
 }
-
 
 export default router;

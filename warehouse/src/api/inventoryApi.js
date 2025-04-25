@@ -124,7 +124,15 @@ export const importInventoryFromExcel = async (file) => {
 
     return response.data;
   } catch (error) {
-    return handleError(error, 'Failed to import inventory')
+    // Check if there's a specific error message from the server for security warnings
+    if (error.response && error.response.data && error.response.data.msg) {
+      return {
+        success: false,
+        msg: error.response.data.msg,
+        isSecurityWarning: error.response.status === 400
+      };
+    }
+    return handleError(error, 'Failed to import inventory');
   }
 };
 

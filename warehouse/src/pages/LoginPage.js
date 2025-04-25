@@ -3,6 +3,8 @@ import { AuthContext } from "../contexts/authContext";
 import { useNavigate, Link } from "react-router-dom";
 import { Box, TextField, Button, Typography, Alert, Paper } from "@mui/material";
 import logo from "../picture/logo.png"; // Import your logo image
+import ReCAPTCHA from "react-google-recaptcha"; // Import reCAPTCHA component
+import { RECAPTCHA_SITE_KEY } from "../config";
 
 // 添加 Orbitron 字体
 const orbitronStyle = {
@@ -23,18 +25,54 @@ export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [captchaValue, setCaptchaValue] = useState(null);
+  const [showCaptcha, setShowCaptcha] = useState(false);
+  const [loginAttempts, setLoginAttempts] = useState(0);
+  const siteKey = RECAPTCHA_SITE_KEY;
+
+  // Function to handle CAPTCHA change
+  const handleCaptchaChange = (value) => {
+    setCaptchaValue(value);
+  };
 
   const onSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
-    const result = await handleLogin(username, password);
+    // Check if we need to validate CAPTCHA
+    if (showCaptcha && !captchaValue) {
+      setError("Please complete the CAPTCHA verification");
+      return;
+    }
+
+    // Include CAPTCHA token in login request if available
+    const result = await handleLogin(username, password, captchaValue);
     console.log("Login result:", result);
+    
     if (result.success) {
-      console.log("Navigating to home");  // 确保 navigate 代码执行
+      console.log("Navigating to home");
       navigate("/home");
     } else {
-      setError(result.msg || "Login failed");
+      // Show CAPTCHA after first failed attempt
+      if (!showCaptcha) {
+        setShowCaptcha(true);
+      }
+      
+      // Increment login attempts counter
+      setLoginAttempts(prev => prev + 1);
+      
+      // Display remaining attempts if available in response
+      if (result.attemptsLeft !== undefined) {
+        setError(`${result.msg} You have ${result.attemptsLeft} attempts left before your account is temporarily locked.`);
+      } else {
+        setError(result.msg || "Login failed");
+      }
+      
+      // Reset CAPTCHA
+      if (captchaValue) {
+        setCaptchaValue(null);
+        // If we have a recaptcha ref, we could reset it here
+      }
     }
   };
 
@@ -138,6 +176,21 @@ export default function LoginPage() {
               },
             }}
           />
+
+          {/* Show CAPTCHA after first failed attempt */}
+          {showCaptcha && (
+            <Box sx={{ 
+              width: "100%", 
+              display: "flex", 
+              justifyContent: "center", 
+              marginY: 2 
+            }}>
+              <ReCAPTCHA
+                sitekey={siteKey}
+                onChange={handleCaptchaChange}
+              />
+            </Box>
+          )}
 
           {error && (
             <Alert severity="error" sx={{ marginBottom: 1 }}>

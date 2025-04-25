@@ -4,17 +4,23 @@ import instance from './axios';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 
-// 登录请求
-export const login = async (username, password) => {
+// Login request
+export const login = async (username, password, captchaToken = null) => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/users`, { username, password });
+    // Include captchaToken in the request body if provided
+    const requestBody = { username, password };
+    if (captchaToken) {
+      requestBody.captchaToken = captchaToken;
+    }
+    
+    const response = await axios.post(`${API_BASE_URL}/users`, requestBody);
     return response.data;
   } catch (error) {
     return handleError(error, 'Login failed');
   }
 };
 
-// 注册请求
+// Register request
 export const signup = async (username, password) => {
   try {
     const response = await axios.post(`${API_BASE_URL}/users?action=register`, { username, password });

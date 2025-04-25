@@ -20,3 +20,6 @@ export const STORAGE_KEYS = {
 // 日期格式
 export const DATE_FORMAT = 'YYYY-MM-DD';
 export const DATETIME_FORMAT = 'YYYY-MM-DD HH:mm:ss'; 
+
+// reCAPTCHA sitekey (use Vite environment variable)
+export const RECAPTCHA_SITE_KEY = '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI';

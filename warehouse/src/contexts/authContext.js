@@ -29,13 +29,13 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  const handleLogin = async (username, password) => {
-    const result = await login(username, password);
+  const handleLogin = async (username, password, captchaToken = null) => {
+    const result = await login(username, password, captchaToken);
     if (result && result.success) {
       const { token, user } = result;
       setToken(token);
       setUser(user);
-      console.log("Setting isAuthenticated to true");  // 确保状态正确更新
+      console.log("Setting isAuthenticated to true");
       setIsAuthenticated(true);
       setRole(user.userRole || "employee");
       localStorage.setItem('token', token);
