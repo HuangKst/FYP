@@ -25,6 +25,8 @@ const port = process.env.PORT;
 // 中间件
 app.use(cors());
 app.use(express.json());
+app.set('trust proxy', 'loopback, linklocal, uniquelocal');
+
 
 // 路由
 app.use('/api/users', logger, usersRouter); // 用户路由需要添加日志记录，但不需要默认认证
