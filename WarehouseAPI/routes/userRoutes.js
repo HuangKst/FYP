@@ -12,11 +12,11 @@ import axios from 'axios';  // 预先导入axios，避免动态导入可能导�
 
 // Define login rate limiter
 const loginRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,  // 15 minutes window
+  windowMs: 1 * 60 * 1000,  // 15 minutes window
   max: 5,                    // limit each IP to 5 requests per windowMs
   message: {
     success: false,
-    msg: 'Too many login attempts from this IP, please try again after 15 minutes'
+    msg: 'Too many login attempts from this IP, please try again after 1 minutes'
   },
   standardHeaders: true,
   legacyHeaders: false,

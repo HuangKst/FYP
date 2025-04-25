@@ -3,12 +3,13 @@ import Inventory from '../Models/inventoryModel.js';
 import{Op,Sequelize} from 'sequelize';
 import { sequelize } from '../db/index.js';
 import ExcelJS from 'exceljs';
+import { authMiddleware, checkInventoryPermission } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
 /**
  * GET /api/inventory
- * 查询库存 (可加筛选: material=?, specification=?, page=?, pageSize=?)
+ * Retrieve inventory (optional filters: material=?, specification=?, page=?, pageSize=? )
  */
 router.get('/',async (req, res) => {
   try {
@@ -16,16 +17,16 @@ router.get('/',async (req, res) => {
     const where = {};
     if (material) where.material = material;
     if (spec) where.specification = { [Op.like]: `%${spec}%` };
-    if (lowStock === 'true') where.quantity = { [Op.lt]: 20 }; // 低于 20 触发预警
+    if (lowStock === 'true') where.quantity = { [Op.lt]: 20 }; // Trigger low stock warning if less than 20
 
-    // 计算偏移量
+    // Calculate offset
     const offset = (parseInt(page) - 1) * parseInt(pageSize);
     const limit = parseInt(pageSize);
 
-    // 获取总记录数
+    // Get total record count
     const count = await Inventory.count({ where });
     
-    // 获取分页数据
+    // Get paginated data
     const list = await Inventory.findAll({ 
       where, 
       order: [['specification','ASC']],
@@ -51,7 +52,7 @@ router.get('/',async (req, res) => {
 
 /**
  * GET /api/inventory/materials
- * 获取所有独特的材质
+ * Get all distinct materials
  */
 router.get('/materials',async (req, res) => {
   try {
@@ -69,9 +70,10 @@ router.get('/materials',async (req, res) => {
 
 /**
  * POST /api/inventory
- * 单独添加材料(材质, 规格, 数量, 比重)
+ * Add a single material (material, specification, quantity, density)
+ * Requires permission: boss, admin
  */
-router.post('/', async (req, res) => {
+router.post('/', authMiddleware, checkInventoryPermission, async (req, res) => {
   try {
     const { material, specification, quantity, density } = req.body;
 
@@ -79,7 +81,7 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ success: false, msg: 'Missing required fields' });
     }
 
-    // 处理 `density`，如果是空字符串，就改为 `null`
+    // Handle `density`: convert empty string to `null`
     const densityValue = density === '' ? null : density;
 
     let inv = await Inventory.findOne({ where: { material, specification } });
@@ -99,9 +101,10 @@ router.post('/', async (req, res) => {
 
 /**
  * PUT /api/inventory/:id
- * 修改库存(数量,比重)
+ * Update inventory (quantity, density)
+ * Requires permission: boss, admin
  */
-router.put('/:id',async (req, res) => {
+router.put('/:id', authMiddleware, checkInventoryPermission, async (req, res) => {
   try {
     const { quantity, density } = req.body;
     const [count] = await Inventory.update({ quantity, density }, { where: { id: req.params.id } });
@@ -115,12 +118,13 @@ router.put('/:id',async (req, res) => {
 
 /**
  * POST /api/inventory/import
- * 接收前端解析好的库存数据并存储到数据库
+ * Receive parsed inventory data from front-end and store into database
+ * Requires permission: boss, admin
  */
-router.post('/import',async (req, res) => {
+router.post('/import', authMiddleware, checkInventoryPermission, async (req, res) => {
   const transaction = await sequelize.transaction();
   try {
-    const { inventory } = req.body; // 从前端接收解析好的数据
+    const { inventory } = req.body; // Receive parsed data from front-end
 
     if (!inventory || !Array.isArray(inventory)) {
       return res.status(400).json({ success: false, msg: 'Invalid inventory data' });
@@ -188,7 +192,7 @@ router.post('/import',async (req, res) => {
     const sanitizedInventory = inventory.map(item => {
       const sanitized = { ...item };
       
-      // 如果字符串以公式字符开头，在前面添加单引号转义
+      // If string starts with a formula character, prepend a single quote to escape
       if (typeof sanitized.material === 'string' && isFormulaLike(sanitized.material)) {
         sanitized.material = "'" + sanitized.material;
       }
@@ -203,7 +207,7 @@ router.post('/import',async (req, res) => {
       const { material, specification, quantity, density } = item;
 
       if (!material || !specification || !quantity) {
-        continue; // 跳过缺少必要字段的记录
+        continue; // Skip records missing required fields
       }
 
       const existingItem = await Inventory.findOne({ where: { material, specification } });
@@ -215,10 +219,10 @@ router.post('/import',async (req, res) => {
         await Inventory.create({ material, specification, quantity, density });
       }
     }
-    await transaction.commit(); // 提交事务
+    await transaction.commit(); // Commit transaction
     res.json({ success: true, msg: 'Inventory imported successfully' });
   } catch (err) {
-    await transaction.rollback(); // 回滚事务
+    await transaction.rollback(); // Rollback transaction
     console.error(err);
     res.status(500).json({ success: false, msg: 'Failed to import inventory' });
   }
@@ -226,7 +230,7 @@ router.post('/import',async (req, res) => {
 
 /**
  * GET /api/inventory/all
- * 获取所有库存数据，不分页 - 主要用于库存检查和订单创建
+ * Get all inventory data without pagination - mainly used for inventory check and order creation
  */
 router.get('/all',async (req, res) => {
   try {
@@ -234,7 +238,7 @@ router.get('/all',async (req, res) => {
     const where = {};
     if (material) where.material = material;
     if (spec) where.specification = { [Op.like]: `%${spec}%` };
-    if (lowStock === 'true') where.quantity = { [Op.lt]: 20 }; // 低于 20 触发预警
+    if (lowStock === 'true') where.quantity = { [Op.lt]: 20 }; // Trigger low stock warning if less than 20
 
     // 获取所有匹配的数据，不应用分页限制
     const list = await Inventory.findAll({ 
@@ -253,16 +257,20 @@ router.get('/all',async (req, res) => {
   }
 });
 
-// 导出库存到Excel
-router.get('/export', async (req, res) => {
+/**
+ * GET /api/inventory/export
+ * Export inventory to Excel
+ * Requires permission: boss, admin
+ */
+router.get('/export', authMiddleware, checkInventoryPermission, async (req, res) => {
   try {
     const { material, spec, lowStock } = req.query;
     const where = {};
     
-    // 添加筛选条件
+    // Add filter conditions
     if (material) where.material = material;
     if (spec) where.specification = { [Op.like]: `%${spec}%` };
-    if (lowStock === 'true') where.quantity = { [Op.lt]: 20 }; // 低于 20 触发预警
+    if (lowStock === 'true') where.quantity = { [Op.lt]: 20 }; // Trigger low stock warning if less than 20
     
     const data = await Inventory.findAll({
       where,
@@ -272,7 +280,7 @@ router.get('/export', async (req, res) => {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Inventory');
 
-    // 设置表头（需要与数据库字段对应）
+    // Set worksheet columns (should correspond to database fields)
     worksheet.columns = [
       { header: 'Material', key: 'material', width: 20 },
       { header: 'Specification', key: 'specification', width: 30 },
@@ -282,7 +290,7 @@ router.get('/export', async (req, res) => {
       { header: 'Updated At', key: 'updated_at', width: 20 }
     ];
 
-    // 填充数据
+    // Fill data
     data.forEach(item => {
       worksheet.addRow({
         material: item.material,
@@ -294,7 +302,7 @@ router.get('/export', async (req, res) => {
       });
     });
 
-    // 设置响应头
+    // Set response headers
     res.setHeader(
       'Content-Type',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -304,7 +312,7 @@ router.get('/export', async (req, res) => {
       'attachment; filename="inventory_export.xlsx"'
     );
 
-    // 发送文件流
+    // Send file stream
     await workbook.xlsx.write(res);
     res.end();
   } catch (err) {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
 import {
     Container,
     Typography,
@@ -31,13 +31,14 @@ import {
     CircularProgress,
     FormControl,
     InputLabel,
-    SelectChangeEvent
+    SelectChangeEvent,
+    Tooltip
 } from '@mui/material';
-import { 
-    fetchInventory, 
-    addInventoryItem, 
-    importInventoryFromExcel, 
-    fetchMaterials, 
+import {
+    fetchInventory,
+    addInventoryItem,
+    importInventoryFromExcel,
+    fetchMaterials,
     exportInventoryToExcel,
     deleteInventoryItem,
     updateInventoryItem
@@ -48,17 +49,24 @@ import SearchIcon from '@mui/icons-material/Search';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import InventoryIcon from '@mui/icons-material/Inventory';
+import LockIcon from '@mui/icons-material/Lock';
 import Pagination from '../component/Pagination';
 import MaterialCard from '../component/materialcard';
 import EditIcon from '@mui/icons-material/Edit';
+import { AuthContext } from '../contexts/authContext';
 
 const InventoryPage = () => {
+    const { role, hasPermission } = useContext(AuthContext);
+    const isEmployee = role === 'employee';
+    // 检查是否有权限添加、导入和导出库存
+    const canManageInventory = !isEmployee;
+
     const [inventory, setInventory] = useState([]);
     const [materials, setMaterials] = useState([]); // 用于存储所有材质
-    const [newItem, setNewItem] = useState({ 
-        material: '', 
-        specification: '', 
-        quantity: '', 
+    const [newItem, setNewItem] = useState({
+        material: '',
+        specification: '',
+        quantity: '',
         density: '',
         created_at: new Date().toISOString().split('T')[0]
     });
@@ -70,7 +78,7 @@ const InventoryPage = () => {
     const [importLoading, setImportLoading] = useState(false);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
     const [viewMode, setViewMode] = useState('list'); // 'list' 或 'card'
-    
+
     // 分页状态
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
@@ -91,10 +99,13 @@ const InventoryPage = () => {
 
     const handleSearch = useCallback(async () => {
         try {
-        const data = await fetchInventory(selectedMaterial, searchKeyword, lowStockOnly, page, pageSize);
-        if (data.success) {
-            setInventory(data.inventory);
-            setPagination(data.pagination || { total: 0, totalPages: 0 });
+            console.log('Fetching inventory with params:', { selectedMaterial, searchKeyword, lowStockOnly, page, pageSize });
+            const data = await fetchInventory(selectedMaterial, searchKeyword, lowStockOnly, page, pageSize);
+            console.log('API response data:', data);
+            if (data.success) {
+                setInventory(data.inventory);
+                setPagination(data.pagination || { total: 0, totalPages: 0 });
+                console.log('Updated pagination state:', data.pagination);
             } else {
                 showSnackbar(data.msg || 'Failed to get inventory data', 'error');
             }
@@ -105,15 +116,16 @@ const InventoryPage = () => {
 
     useEffect(() => {
         handleSearch();
-    }, [handleSearch]); // 这样不会导致无限循环
+    }, [page, pageSize, selectedMaterial, searchKeyword, lowStockOnly]);
+
 
     const loadInventory = async () => {
         try {
-        const data = await fetchInventory('', '', false, page, pageSize);
-        if (data.success) {
-            setInventory(data.inventory);
-            setPagination(data.pagination || { total: 0, totalPages: 0 });
-        }
+            const data = await fetchInventory('', '', false, page, pageSize);
+            if (data.success) {
+                setInventory(data.inventory);
+                setPagination(data.pagination || { total: 0, totalPages: 0 });
+            }
             else showSnackbar(data.msg || 'Failed to get inventory data', 'error');
         } catch (error) {
             showSnackbar('Failed to get inventory data', 'error');
@@ -122,8 +134,8 @@ const InventoryPage = () => {
 
     const loadMaterials = async () => {
         try {
-        const data = await fetchMaterials();
-        if (data.success) setMaterials(data.materials);
+            const data = await fetchMaterials();
+            if (data.success) setMaterials(data.materials);
             else showSnackbar(data.msg || 'Failed to get material list', 'error');
         } catch (error) {
             showSnackbar('Failed to get material list', 'error');
@@ -135,27 +147,27 @@ const InventoryPage = () => {
             showSnackbar('Please fill in all required fields', 'error');
             return;
         }
-        
+
         try {
             const result = await addInventoryItem(
-                newItem.material, 
-                newItem.specification, 
-                newItem.quantity, 
+                newItem.material,
+                newItem.specification,
+                newItem.quantity,
                 newItem.density,
                 newItem.created_at
             );
-            
-        if (result.success) {
-                setNewItem({ 
-                    material: '', 
-                    specification: '', 
-                    quantity: '', 
+
+            if (result.success) {
+                setNewItem({
+                    material: '',
+                    specification: '',
+                    quantity: '',
                     density: '',
                     created_at: new Date().toISOString().split('T')[0]
                 });
-            setOpenDialog(false);
-            setPage(1); // 重置到第一页
-            loadInventory();
+                setOpenDialog(false);
+                setPage(1); // 重置到第一页
+                loadInventory();
                 showSnackbar('Item added to inventory successfully', 'success');
             } else {
                 showSnackbar(result.msg || 'Addition failed', 'error');
@@ -188,17 +200,17 @@ const InventoryPage = () => {
     const handleFileUpload = async (event) => {
         const file = event.target.files[0];
         if (!file) return;
-        
+
         setImportLoading(true);
         try {
-        const result = await importInventoryFromExcel(file);
-        if (result.success) {
-            loadInventory();
+            const result = await importInventoryFromExcel(file);
+            if (result.success) {
+                loadInventory();
                 showSnackbar('Import successful', 'success');
             } else {
                 if (result.isSecurityWarning) {
                     showSnackbar(
-                        `Security Warning: ${result.msg}`, 
+                        `Security Warning: ${result.msg}`,
                         'warning',
                         10000  // Show for 10 seconds for security warnings
                     );
@@ -216,7 +228,7 @@ const InventoryPage = () => {
     const handleExport = async () => {
         setExportLoading(true);
         try {
-        const result = await exportInventoryToExcel(selectedMaterial, searchKeyword, lowStockOnly);
+            const result = await exportInventoryToExcel(selectedMaterial, searchKeyword, lowStockOnly);
             if (result.success) {
                 showSnackbar('Export successful', 'success');
             } else {
@@ -225,15 +237,15 @@ const InventoryPage = () => {
         } catch (error) {
             showSnackbar('Export failed', 'error');
         } finally {
-        setExportLoading(false);
+            setExportLoading(false);
         }
     };
 
     // 显示提示消息
     const showSnackbar = (message, severity = 'success', duration = 6000) => {
-        setSnackbar({ 
-            open: true, 
-            message, 
+        setSnackbar({
+            open: true,
+            message,
             severity,
             autoHideDuration: duration
         });
@@ -251,7 +263,7 @@ const InventoryPage = () => {
     // 获取随机颜色
     const getRandomColor = (str) => {
         const colors = [
-            '#1976d2', '#388e3c', '#d32f2f', '#7b1fa2', 
+            '#1976d2', '#388e3c', '#d32f2f', '#7b1fa2',
             '#c2185b', '#0288d1', '#00796b', '#f57c00'
         ];
         const index = str ? str.length % colors.length : 0;
@@ -265,15 +277,18 @@ const InventoryPage = () => {
     };
 
     // 处理页码变化
-    const handlePageChange = (event, newPage) => {
+    const handlePageChange = (newPage) => {
+        console.log('Page changed to:', newPage, 'Current page:', page);
         setPage(newPage);
     };
 
     // 处理每页数量变化
-    const handlePageSizeChange = (event) => {
-        setPageSize(parseInt(event.target.value));
-        setPage(1); // 重置到第一页
+    const handlePageSizeChange = (newSize) => {
+        console.log('Page size changed to:', newSize, 'Current size:', pageSize);
+        setPageSize(newSize);
+        setPage(1);
     };
+
 
     const handleEditClick = (item, e) => {
         if (e) e.stopPropagation();
@@ -282,12 +297,12 @@ const InventoryPage = () => {
         setEditDensity(item.density || '');
         setEditDialogOpen(true);
     };
-    
+
     const handleCloseEditDialog = () => {
         setEditDialogOpen(false);
         setSelectedItem(null);
     };
-    
+
     const handleUpdateItem = async () => {
         try {
             const result = await updateInventoryItem(
@@ -295,7 +310,7 @@ const InventoryPage = () => {
                 editQuantity,
                 editDensity
             );
-            
+
             if (result.success) {
                 handleCloseEditDialog();
                 handleSearch(); // 更新数据
@@ -309,10 +324,10 @@ const InventoryPage = () => {
     return (
         <Container maxWidth={false} sx={{ height: 'calc(100vh - 64px)', p: 0, mt: '64px' }}>
             <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                <Paper 
-                    elevation={0} 
-                    sx={{ 
-                        p: 3, 
+                <Paper
+                    elevation={0}
+                    sx={{
+                        p: 3,
                         backgroundColor: 'primary.main',
                         color: 'white',
                         borderRadius: 0,
@@ -334,401 +349,434 @@ const InventoryPage = () => {
                             {/* Search and Filter Area */}
                             <Grid container spacing={2} sx={{ mb: 3 }}>
                                 <Grid item xs={12} md={3}>
-                <Select
-                    value={selectedMaterial}
-                    onChange={(e) => setSelectedMaterial(e.target.value)}
-                    displayEmpty
-                                    fullWidth
-                                    sx={{ borderRadius: 2 }}
-                >
-                    <MenuItem value="">All Materials</MenuItem>
-                    {materials.map((material) => (
-                        <MenuItem key={material} value={material}>
-                            {material}
-                        </MenuItem>
-                    ))}
-                </Select>
+                                    <Select
+                                        value={selectedMaterial}
+                                        onChange={(e) => setSelectedMaterial(e.target.value)}
+                                        displayEmpty
+                                        fullWidth
+                                        sx={{ borderRadius: 2 }}
+                                    >
+                                        <MenuItem value="">All Materials</MenuItem>
+                                        {materials.map((material) => (
+                                            <MenuItem key={material} value={material}>
+                                                {material}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
                                 </Grid>
                                 <Grid item xs={12} md={4}>
-                <TextField
-                    label="Search Specification"
-                    value={searchKeyword}
-                    onChange={(e) => setSearchKeyword(e.target.value)}
-                                    fullWidth
-                                    sx={{ borderRadius: 2 }}
-                                    InputProps={{
-                                        startAdornment: (
-                                            <InputAdornment position="start">
-                                                <SearchIcon />
-                                            </InputAdornment>
-                                        ),
-                                    }}
-                                />
+                                    <TextField
+                                        label="Search Specification"
+                                        value={searchKeyword}
+                                        onChange={(e) => setSearchKeyword(e.target.value)}
+                                        fullWidth
+                                        sx={{ borderRadius: 2 }}
+                                        InputProps={{
+                                            startAdornment: (
+                                                <InputAdornment position="start">
+                                                    <SearchIcon />
+                                                </InputAdornment>
+                                            ),
+                                        }}
+                                    />
                                 </Grid>
                                 <Grid item xs={12} md={2}>
-                                    <Button 
-                                        variant="contained" 
-                                        color="primary" 
+                                    <Button
+                                        variant="contained"
+                                        color="primary"
                                         onClick={handleSearch}
                                         fullWidth
-                                        sx={{ 
+                                        sx={{
                                             height: '56px',
                                             borderRadius: 2,
                                             textTransform: 'none'
                                         }}
                                     >
-                    Search
-                </Button>
+                                        Search
+                                    </Button>
                                 </Grid>
                                 <Grid item xs={12} md={3}>
-                <FormControlLabel
-                    control={
-                        <Checkbox
-                            checked={lowStockOnly}
-                            onChange={(e) => setLowStockOnly(e.target.checked)}
-                        />
-                    }
-                    label="Low Stock Only"
-                />
+                                    <FormControlLabel
+                                        control={
+                                            <Checkbox
+                                                checked={lowStockOnly}
+                                                onChange={(e) => setLowStockOnly(e.target.checked)}
+                                            />
+                                        }
+                                        label="Low Stock Only"
+                                    />
                                 </Grid>
                             </Grid>
 
                             {/* Action Buttons Area */}
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
                                 <Box>
-                <Button
-                    variant="contained"
-                                    color="primary"
-                                    onClick={() => setOpenDialog(true)}
-                                    startIcon={<AddIcon />}
-                                    sx={{ 
-                                        mr: 2,
-                                        boxShadow: 2,
-                                        textTransform: 'none',
-                                        borderRadius: 2
-                                    }}
-                                >
-                                    Add Item
-                                </Button>
-                                <Button
-                                    variant="outlined"
-                                    color="primary"
-                                    component="label"
-                                    startIcon={<FileUploadIcon />}
-                                    disabled={importLoading}
-                                    sx={{ 
-                                        mr: 2,
-                                        textTransform: 'none',
-                                        borderRadius: 2
-                                    }}
-                                >
-                                    {importLoading ? 'Importing...' : 'Import Excel'}
-                                    <input
-                                        type="file"
-                                        hidden
-                                        accept=".xlsx"
-                                        onChange={handleFileUpload}
-                                    />
-                                </Button>
-                                <Button
-                                    variant="outlined"
-                                    color="primary"
-                    onClick={handleExport}
-                    disabled={exportLoading}
-                                    startIcon={exportLoading ? <CircularProgress size={20} /> : <FileDownloadIcon />}
-                                    sx={{ 
-                                        textTransform: 'none',
-                                        borderRadius: 2
-                                    }}
-                                >
-                                    {exportLoading ? 'Exporting...' : 'Export Excel'}
-                                </Button>
-                            </Box>
-                            <Box>
-                                <Button
-                                    variant={viewMode === 'list' ? 'contained' : 'outlined'}
-                                    color="primary"
-                                    onClick={() => setViewMode('list')}
-                                    sx={{ 
-                                        mr: 1,
-                                        textTransform: 'none',
-                                        borderRadius: 2
-                                    }}
-                                >
-                                    List View
-                </Button>
-                                <Button
-                                    variant={viewMode === 'card' ? 'contained' : 'outlined'}
-                                    color="primary"
-                                    onClick={() => setViewMode('card')}
-                                    sx={{ 
-                                        textTransform: 'none',
-                                        borderRadius: 2
-                                    }}
-                                >
-                                    Card View
-            </Button>
-                            </Box>
-                        </Box>
-
-                        {/* Inventory List - List View */}
-                        {viewMode === 'list' && (
-                            <>
-                            <List sx={{ 
-                                bgcolor: 'background.paper',
-                                maxHeight: 'calc(100vh - 350px)', // 减少高度以适应分页控件
-                                overflowY: 'auto',
-                                '&::-webkit-scrollbar': {
-                                    width: '8px',
-                                },
-                                '&::-webkit-scrollbar-track': {
-                                    background: '#f1f1f1',
-                                },
-                                '&::-webkit-scrollbar-thumb': {
-                                    background: '#888',
-                                    borderRadius: '4px',
-                                },
-                                '&::-webkit-scrollbar-thumb:hover': {
-                                    background: '#555',
-                                }
-                            }}>
-                        {inventory.map((item) => (
-                                    <React.Fragment key={item.id}>
-                                        <ListItem
-                                            onClick={() => handleEditClick(item)}
-                                            sx={{
-                                                cursor: 'pointer',
-                                                '&:hover': {
-                                                    // 移除悬停效果
-                                                },
-                                                borderRadius: 2,
-                                                mb: 1,
-                                                p: 2,
-                                                display: 'flex',
-                                                alignItems: 'flex-start',
-                                                justifyContent: 'space-between'
-                                            }}
-                                        >
-                                            <Box sx={{ display: 'flex', alignItems: 'flex-start', flex: 1, mr: 2 }}>
-                                                <Avatar 
-                                                    sx={{ 
-                                                        mr: 2, 
-                                                        bgcolor: getRandomColor(item.material),
-                                                        width: 40,
-                                                        height: 40
-                                                    }}
-                                                >
-                                                    {getInitials(item.material)}
-                                                </Avatar>
-                                                <ListItemText
-                                                    primary={
-                                                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                                            <Typography variant="subtitle1" sx={{ fontWeight: 'medium', mr: 2 }}>
-                                                                {item.material}
-                                                            </Typography>
-                                                            <Chip 
-                                                                label={getStockStatus(item.quantity).label} 
-                                                                color={getStockStatus(item.quantity).color}
-                                                                size="small"
-                                                            />
-                                                        </Box>
-                                                    }
-                                                    secondary={
-                                                        <Box sx={{ mt: 0.5 }}>
-                                                            <Typography 
-                                                                variant="body2" 
-                                                                color="text.secondary"
-                                                                component="span"
-                                                                sx={{ mr: 2 }}
-                                                            >
-                                                                Spec: {item.specification || 'Not set'}
-                                                            </Typography>
-                                                            <Typography 
-                                                                variant="body2" 
-                                                                color="text.secondary"
-                                                                component="span"
-                                                                sx={{ mr: 2 }}
-                                                            >
-                                                                Quantity: {item.quantity}
-                                                            </Typography>
-                                                            <Typography 
-                                                                variant="body2" 
-                                                                color="text.secondary"
-                                                                component="span"
-                                                                sx={{ mr: 2 }}
-                                                            >
-                                                                Density: {item.density || 'Not set'}
-                                                            </Typography>
-                                                            <Typography 
-                                                                variant="body2" 
-                                                                color="text.secondary"
-                                                                component="span"
-                                                            >
-                                                                Created: {new Date(item.created_at).toLocaleDateString()}
-                                                            </Typography>
-                                                        </Box>
-                                                    }
+                                    <Tooltip title={isEmployee ? "Insufficient permissions" : "Add Item"}>
+                                        <span>
+                                            <Button
+                                                variant="contained"
+                                                color="primary"
+                                                onClick={() => setOpenDialog(true)}
+                                                startIcon={canManageInventory ? <AddIcon /> : <LockIcon />}
+                                                sx={{
+                                                    mr: 2,
+                                                    boxShadow: 2,
+                                                    textTransform: 'none',
+                                                    borderRadius: 2
+                                                }}
+                                                disabled={!canManageInventory}
+                                            >
+                                                Add Item
+                                            </Button>
+                                        </span>
+                                    </Tooltip>
+                                    <Tooltip title={isEmployee ? "Insufficient permissions" : "Import Excel"}>
+                                        <span>
+                                            <Button
+                                                variant="outlined"
+                                                color="primary"
+                                                component="label"
+                                                startIcon={canManageInventory ? <FileUploadIcon /> : <LockIcon />}
+                                                disabled={importLoading || !canManageInventory}
+                                                sx={{
+                                                    mr: 2,
+                                                    textTransform: 'none',
+                                                    borderRadius: 2
+                                                }}
+                                            >
+                                                {importLoading ? 'Importing...' : 'Import Excel'}
+                                                <input
+                                                    type="file"
+                                                    hidden
+                                                    accept=".xlsx"
+                                                    onChange={handleFileUpload}
+                                                    disabled={!canManageInventory}
                                                 />
-                                            </Box>
-                                            <Box>
-                                                <IconButton
-                                                    edge="end"
-                                                    aria-label="edit"
-                                                    onClick={(e) => handleEditClick(item, e)}
-                                                    sx={{
-                                                        color: 'primary.main',
-                                                        mr: 1
-                                                    }}
-                                                >
-                                                    <EditIcon />
-                                                </IconButton>
-                                                <IconButton
-                                                    edge="end"
-                                                    aria-label="delete"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleDeleteItem(item.id);
-                                                    }}
-                                                    sx={{
-                                                        '&:hover': {
-                                                            color: 'error.main',
-                                                        }
-                                                    }}
-                                                >
-                                                    <DeleteIcon />
-                                                </IconButton>
-                                            </Box>
-                                        </ListItem>
-                                    </React.Fragment>
-                                ))}
-                                {inventory.length === 0 && (
-                                    <Box 
-                                        sx={{ 
-                                            textAlign: 'center', 
-                                            py: 4,
-                                            color: 'text.secondary'
+                                            </Button>
+                                        </span>
+                                    </Tooltip>
+                                    <Tooltip title={isEmployee ? "Insufficient permissions" : "Export Excel"}>
+                                        <span>
+                                            <Button
+                                                variant="outlined"
+                                                color="primary"
+                                                onClick={handleExport}
+                                                disabled={exportLoading || !canManageInventory}
+                                                startIcon={exportLoading ? <CircularProgress size={20} /> : (canManageInventory ? <FileDownloadIcon /> : <LockIcon />)}
+                                                sx={{
+                                                    textTransform: 'none',
+                                                    borderRadius: 2
+                                                }}
+                                            >
+                                                {exportLoading ? 'Exporting...' : 'Export Excel'}
+                                            </Button>
+                                        </span>
+                                    </Tooltip>
+                                </Box>
+                                <Box>
+                                    <Button
+                                        variant={viewMode === 'list' ? 'contained' : 'outlined'}
+                                        color="primary"
+                                        onClick={() => setViewMode('list')}
+                                        sx={{
+                                            mr: 1,
+                                            textTransform: 'none',
+                                            borderRadius: 2
                                         }}
                                     >
-                                        <Typography variant="body1">
-                                            No inventory items found
-                                        </Typography>
-                                    </Box>
-                                )}
-                            </List>
-                            
-                            {/* 使用分页组件 */}
-                            <Pagination 
-                                pagination={pagination}
-                                onPageChange={handlePageChange}
-                                onPageSizeChange={handlePageSizeChange}
-                            />
-                            </>
-                        )}
+                                        List View
+                                    </Button>
+                                    <Button
+                                        variant={viewMode === 'card' ? 'contained' : 'outlined'}
+                                        color="primary"
+                                        onClick={() => setViewMode('card')}
+                                        sx={{
+                                            textTransform: 'none',
+                                            borderRadius: 2
+                                        }}
+                                    >
+                                        Card View
+                                    </Button>
+                                </Box>
+                            </Box>
 
-                        {/* Inventory List - Card View */}
-                        {viewMode === 'card' && (
-                            <>
-                            <Grid container spacing={3} sx={{
-                                maxHeight: 'calc(100vh - 350px)', // 减少高度以适应分页控件
-                                overflowY: 'auto',
-                                '&::-webkit-scrollbar': {
-                                    width: '8px',
-                                },
-                                '&::-webkit-scrollbar-track': {
-                                    background: '#f1f1f1',
-                                },
-                                '&::-webkit-scrollbar-thumb': {
-                                    background: '#888',
-                                    borderRadius: '4px',
-                                },
-                                '&::-webkit-scrollbar-thumb:hover': {
-                                    background: '#555',
-                                }
-                            }}>
-                                {inventory.map((item) => (
-                                    <Grid item xs={12} sm={6} md={4} key={item.id}>
-                                        <MaterialCard 
-                                            item={item}
-                                            getStockStatus={getStockStatus}
-                                            getInitials={getInitials}
-                                            getRandomColor={getRandomColor}
-                                            onDelete={handleDeleteItem}
-                                            onUpdate={handleSearch}
-                                        />
+                            {/* Inventory List - List View */}
+                            {viewMode === 'list' && (
+                                <>
+                                    <List sx={{
+                                        bgcolor: 'background.paper',
+                                        maxHeight: 'calc(100vh - 350px)', // 减少高度以适应分页控件
+                                        overflowY: 'auto',
+                                        '&::-webkit-scrollbar': {
+                                            width: '8px',
+                                        },
+                                        '&::-webkit-scrollbar-track': {
+                                            background: '#f1f1f1',
+                                        },
+                                        '&::-webkit-scrollbar-thumb': {
+                                            background: '#888',
+                                            borderRadius: '4px',
+                                        },
+                                        '&::-webkit-scrollbar-thumb:hover': {
+                                            background: '#555',
+                                        }
+                                    }}>
+                                        {inventory.map((item) => (
+                                            <React.Fragment key={item.id}>
+                                                <ListItem
+                                                    onClick={canManageInventory ? () => handleEditClick(item) : undefined}
+                                                    sx={{
+                                                        cursor: canManageInventory ? 'pointer' : 'default',
+                                                        '&:hover': {
+                                                            // 移除悬停效果
+                                                        },
+                                                        borderRadius: 2,
+                                                        mb: 1,
+                                                        p: 2,
+                                                        display: 'flex',
+                                                        alignItems: 'flex-start',
+                                                        justifyContent: 'space-between'
+                                                    }}
+                                                >
+                                                    <Box sx={{ display: 'flex', alignItems: 'flex-start', flex: 1, mr: 2 }}>
+                                                        <Avatar
+                                                            sx={{
+                                                                mr: 2,
+                                                                bgcolor: getRandomColor(item.material),
+                                                                width: 40,
+                                                                height: 40
+                                                            }}
+                                                        >
+                                                            {getInitials(item.material)}
+                                                        </Avatar>
+                                                        <ListItemText
+                                                            primary={
+                                                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                                                    <Typography variant="subtitle1" sx={{ fontWeight: 'medium', mr: 2 }}>
+                                                                        {item.material}
+                                                                    </Typography>
+                                                                    <Chip
+                                                                        label={getStockStatus(item.quantity).label}
+                                                                        color={getStockStatus(item.quantity).color}
+                                                                        size="small"
+                                                                    />
+                                                                </Box>
+                                                            }
+                                                            secondary={
+                                                                <Box sx={{ mt: 0.5 }}>
+                                                                    <Typography
+                                                                        variant="body2"
+                                                                        color="text.secondary"
+                                                                        component="span"
+                                                                        sx={{ mr: 2 }}
+                                                                    >
+                                                                        Spec: {item.specification || 'Not set'}
+                                                                    </Typography>
+                                                                    <Typography
+                                                                        variant="body2"
+                                                                        color="text.secondary"
+                                                                        component="span"
+                                                                        sx={{ mr: 2 }}
+                                                                    >
+                                                                        Quantity: {item.quantity}
+                                                                    </Typography>
+                                                                    <Typography
+                                                                        variant="body2"
+                                                                        color="text.secondary"
+                                                                        component="span"
+                                                                        sx={{ mr: 2 }}
+                                                                    >
+                                                                        Density: {item.density || 'Not set'}
+                                                                    </Typography>
+                                                                    <Typography
+                                                                        variant="body2"
+                                                                        color="text.secondary"
+                                                                        component="span"
+                                                                    >
+                                                                        Created: {new Date(item.created_at).toLocaleDateString()}
+                                                                    </Typography>
+                                                                </Box>
+                                                            }
+                                                        />
+                                                    </Box>
+                                                    <Box>
+                                                        {canManageInventory && (
+                                                            <>
+                                                                <IconButton
+                                                                    edge="end"
+                                                                    aria-label="edit"
+                                                                    onClick={(e) => handleEditClick(item, e)}
+                                                                    sx={{
+                                                                        color: 'primary.main',
+                                                                        mr: 1
+                                                                    }}
+                                                                >
+                                                                    <EditIcon />
+                                                                </IconButton>
+                                                                <IconButton
+                                                                    edge="end"
+                                                                    aria-label="delete"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleDeleteItem(item.id);
+                                                                    }}
+                                                                    sx={{
+                                                                        '&:hover': {
+                                                                            color: 'error.main',
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    <DeleteIcon />
+                                                                </IconButton>
+                                                            </>
+                                                        )}
+                                                        {!canManageInventory && (
+                                                            <Tooltip title="No edit permission">
+                                                                <LockIcon color="action" sx={{ opacity: 0.5 }} />
+                                                            </Tooltip>
+                                                        )}
+                                                    </Box>
+                                                </ListItem>
+                                            </React.Fragment>
+                                        ))}
+                                        {inventory.length === 0 && (
+                                            <Box
+                                                sx={{
+                                                    textAlign: 'center',
+                                                    py: 4,
+                                                    color: 'text.secondary'
+                                                }}
+                                            >
+                                                <Typography variant="body1">
+                                                    No inventory items found
+                                                </Typography>
+                                            </Box>
+                                        )}
+                                    </List>
+
+                                    {/* 使用分页组件 */}
+                                    <Pagination
+                                        pagination={{
+                                            ...pagination,
+                                            page,
+                                            pageSize
+                                        }}
+                                        onPageChange={handlePageChange}
+                                        onPageSizeChange={handlePageSizeChange}
+                                    />
+
+                                </>
+                            )}
+
+                            {/* Inventory List - Card View */}
+                            {viewMode === 'card' && (
+                                <>
+                                    <Grid container spacing={3} sx={{
+                                        maxHeight: 'calc(100vh - 350px)', // 减少高度以适应分页控件
+                                        overflowY: 'auto',
+                                        '&::-webkit-scrollbar': {
+                                            width: '8px',
+                                        },
+                                        '&::-webkit-scrollbar-track': {
+                                            background: '#f1f1f1',
+                                        },
+                                        '&::-webkit-scrollbar-thumb': {
+                                            background: '#888',
+                                            borderRadius: '4px',
+                                        },
+                                        '&::-webkit-scrollbar-thumb:hover': {
+                                            background: '#555',
+                                        }
+                                    }}>
+                                        {inventory.map((item) => (
+                                            <Grid item xs={12} sm={6} md={4} key={item.id}>
+                                                <MaterialCard
+                                                    item={item}
+                                                    getStockStatus={getStockStatus}
+                                                    getInitials={getInitials}
+                                                    getRandomColor={getRandomColor}
+                                                    onDelete={handleDeleteItem}
+                                                    onUpdate={handleSearch}
+                                                    canEdit={canManageInventory}
+                                                />
+                                            </Grid>
+                                        ))}
+                                        {inventory.length === 0 && (
+                                            <Grid item xs={12}>
+                                                <Box
+                                                    sx={{
+                                                        textAlign: 'center',
+                                                        py: 4,
+                                                        color: 'text.secondary'
+                                                    }}
+                                                >
+                                                    <Typography variant="body1">
+                                                        No inventory items found
+                                                    </Typography>
+                                                </Box>
+                                            </Grid>
+                                        )}
                                     </Grid>
-                                ))}
-                                {inventory.length === 0 && (
-                                    <Grid item xs={12}>
-                                        <Box 
-                                            sx={{ 
-                                                textAlign: 'center', 
-                                                py: 4,
-                                                color: 'text.secondary'
-                                            }}
-                                        >
-                                            <Typography variant="body1">
-                                                No inventory items found
-                                            </Typography>
-                                        </Box>
-                                    </Grid>
-                                )}
-                            </Grid>
-                            
-                            {/* 使用分页组件 */}
-                            <Pagination 
-                                pagination={pagination}
-                                onPageChange={handlePageChange}
-                                onPageSizeChange={handlePageSizeChange}
-                            />
-                            </>
-                        )}
+
+                                    {/* 使用分页组件 - Card View */}
+                                    <Pagination
+                                        pagination={{
+                                            ...pagination,
+                                            page,
+                                            pageSize
+                                        }}
+                                        onPageChange={handlePageChange}
+                                        onPageSizeChange={handlePageSizeChange}
+                                    />
+                                </>
+                            )}
                         </Box>
                     </Paper>
                 </Box>
 
                 {/* Add Item Dialog */}
-            <Dialog
-                open={openDialog}
-                onClose={() => setOpenDialog(false)}
+                <Dialog
+                    open={openDialog}
+                    onClose={() => setOpenDialog(false)}
                     PaperProps={{
                         sx: { borderRadius: 2 }
                     }}
                 >
                     <DialogTitle sx={{ pb: 1 }}>Add New Item</DialogTitle>
                     <DialogContent sx={{ pb: 2 }}>
-                    <TextField
+                        <TextField
                             autoFocus
                             margin="dense"
-                        label="Material (Required)"
-                        fullWidth
-                        value={newItem.material}
-                        onChange={(e) => setNewItem({ ...newItem, material: e.target.value })}
+                            label="Material (Required)"
+                            fullWidth
+                            value={newItem.material}
+                            onChange={(e) => setNewItem({ ...newItem, material: e.target.value })}
                             sx={{ mb: 2 }}
-                    />
-                    <TextField
+                        />
+                        <TextField
                             margin="dense"
-                        label="Specification (Required)"
-                        fullWidth
-                        value={newItem.specification}
-                        onChange={(e) => setNewItem({ ...newItem, specification: e.target.value })}
+                            label="Specification (Required)"
+                            fullWidth
+                            value={newItem.specification}
+                            onChange={(e) => setNewItem({ ...newItem, specification: e.target.value })}
                             sx={{ mb: 2 }}
-                    />
-                    <TextField
+                        />
+                        <TextField
                             margin="dense"
-                        label="Quantity (Required)"
+                            label="Quantity (Required)"
                             type="number"
-                        fullWidth
-                        value={newItem.quantity}
-                        onChange={(e) => setNewItem({ ...newItem, quantity: e.target.value })}
+                            fullWidth
+                            value={newItem.quantity}
+                            onChange={(e) => setNewItem({ ...newItem, quantity: e.target.value })}
                             sx={{ mb: 2 }}
-                    />
-                    <TextField
+                        />
+                        <TextField
                             margin="dense"
-                        label="Density (Optional)"
+                            label="Density (Optional)"
                             type="number"
-                        fullWidth
-                        value={newItem.density}
-                        onChange={(e) => setNewItem({ ...newItem, density: e.target.value })}
+                            fullWidth
+                            value={newItem.density}
+                            onChange={(e) => setNewItem({ ...newItem, density: e.target.value })}
                             sx={{ mb: 2 }}
                         />
                         <TextField
@@ -739,30 +787,30 @@ const InventoryPage = () => {
                             InputLabelProps={{ shrink: true }}
                             value={newItem.created_at}
                             onChange={(e) => setNewItem({ ...newItem, created_at: e.target.value })}
-                    />
-                </DialogContent>
+                        />
+                    </DialogContent>
                     <DialogActions sx={{ px: 3, pb: 2 }}>
-                        <Button 
+                        <Button
                             onClick={() => setOpenDialog(false)}
-                            sx={{ 
+                            sx={{
                                 textTransform: 'none',
                                 borderRadius: 2
                             }}
                         >
-                        Cancel
-                    </Button>
-                        <Button 
+                            Cancel
+                        </Button>
+                        <Button
                             onClick={handleAddItem}
                             variant="contained"
-                            sx={{ 
+                            sx={{
                                 textTransform: 'none',
                                 borderRadius: 2
                             }}
                         >
-                        Add
-                    </Button>
-                </DialogActions>
-            </Dialog>
+                            Add
+                        </Button>
+                    </DialogActions>
+                </Dialog>
 
                 {/* Snackbar */}
                 <Snackbar
@@ -782,8 +830,8 @@ const InventoryPage = () => {
                 </Snackbar>
 
                 {/* Edit Dialog */}
-                <Dialog 
-                    open={editDialogOpen} 
+                <Dialog
+                    open={editDialogOpen}
                     onClose={handleCloseEditDialog}
                     PaperProps={{
                         sx: { borderRadius: 2 }
@@ -818,19 +866,19 @@ const InventoryPage = () => {
                         )}
                     </DialogContent>
                     <DialogActions sx={{ px: 3, pb: 2 }}>
-                        <Button 
-                            onClick={handleCloseEditDialog} 
-                            sx={{ 
+                        <Button
+                            onClick={handleCloseEditDialog}
+                            sx={{
                                 textTransform: 'none',
                                 borderRadius: 2
                             }}
                         >
                             Cancel
                         </Button>
-                        <Button 
-                            onClick={handleUpdateItem} 
+                        <Button
+                            onClick={handleUpdateItem}
                             variant="contained"
-                            sx={{ 
+                            sx={{
                                 textTransform: 'none',
                                 borderRadius: 2
                             }}

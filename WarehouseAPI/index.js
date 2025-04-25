@@ -20,7 +20,7 @@ import logger from './logger/index.js';
 dotenv.config();
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT;
 
 // 中间件
 app.use(cors());

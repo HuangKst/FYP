@@ -68,6 +68,14 @@ export const addInventoryItem = async (material, specification, quantity, densit
     });
     return response.data;
   } catch (error) {
+    // 特别处理权限错误
+    if (error.response && error.response.status === 403) {
+      return {
+        success: false,
+        msg: 'Insufficient permissions: higher privileges required',
+        isPermissionError: true
+      };
+    }
     return handleError(error, 'Failed to add inventory item')
   }
 };
@@ -81,6 +89,14 @@ export const updateInventoryItem = async (id, quantity, density) => {
     });
     return response.data;
   } catch (error) {
+    // 特别处理权限错误
+    if (error.response && error.response.status === 403) {
+      return {
+        success: false,
+        msg: 'Insufficient permissions: higher privileges required',
+        isPermissionError: true
+      };
+    }
     return handleError(error, 'Failed to update inventory item')
   }
 };
@@ -91,6 +107,14 @@ export const deleteInventoryItem = async (id) => {
     const response = await instance.delete(`/inventory/${id}`);
     return response.data;
   } catch (error) {
+    // 特别处理权限错误
+    if (error.response && error.response.status === 403) {
+      return {
+        success: false,
+        msg: 'Insufficient permissions: higher privileges required',
+        isPermissionError: true
+      };
+    }
     return handleError(error, 'Failed to delete inventory item')
   }
 };
@@ -124,6 +148,15 @@ export const importInventoryFromExcel = async (file) => {
 
     return response.data;
   } catch (error) {
+    // 特别处理权限错误
+    if (error.response && error.response.status === 403) {
+      return {
+        success: false,
+        msg: 'Insufficient permissions: higher privileges required',
+        isPermissionError: true
+      };
+    }
+    
     // Check if there's a specific error message from the server for security warnings
     if (error.response && error.response.data && error.response.data.msg) {
       return {
@@ -160,6 +193,14 @@ export const exportInventoryToExcel = async (material, specification, lowStock) 
 
     return { success: true };
   } catch (error) {
+    // 特别处理权限错误
+    if (error.response && error.response.status === 403) {
+      return {
+        success: false,
+        msg: 'Insufficient permissions: higher privileges required',
+        isPermissionError: true
+      };
+    }
     return handleError(error, 'Export failed')
   }
 };

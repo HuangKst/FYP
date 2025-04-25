@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   Box,
   Pagination as MuiPagination,
@@ -29,6 +29,15 @@ const Pagination = ({
   showTotal = true,
   totalLabel = "Total: {total} items"
 }) => {
+  // Debug pagination props
+  useEffect(() => {
+    console.log('Pagination component received:', { 
+      pagination, 
+      currentPage: pagination?.page,
+      totalPages: pagination?.totalPages 
+    });
+  }, [pagination]);
+
   // 确保pagination对象是完整的
   const safetyPagination = {
     total: pagination?.total || 0,
@@ -39,6 +48,9 @@ const Pagination = ({
   
   // Handle page change
   const handlePageChange = (event, newPage) => {
+    console.log('Pagination component: page change triggered', { 
+      event, newPage, currentPage: safetyPagination.page 
+    });
     if (onPageChange) {
       onPageChange(newPage);
     }
@@ -46,6 +58,10 @@ const Pagination = ({
 
   // Handle page size change
   const handlePageSizeChange = (event) => {
+    console.log('Pagination component: page size change triggered', { 
+      newSize: event.target.value, 
+      currentSize: safetyPagination.pageSize 
+    });
     if (onPageSizeChange) {
       onPageSizeChange(parseInt(event.target.value || 10));
     }

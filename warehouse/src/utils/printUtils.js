@@ -1,19 +1,19 @@
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
-// 从DOM元素直接打印，使用iframe方式避免破坏React状态
+// Print directly from DOM element using iframe to avoid breaking React state
 export const printElement = (elementId) => {
   const printContent = document.getElementById(elementId);
   if (!printContent) return;
   
-  // 创建一个隐藏的iframe
+  // Create a hidden iframe
   const iframe = document.createElement('iframe');
   iframe.style.position = 'absolute';
   iframe.style.top = '-9999px';
   iframe.style.left = '-9999px';
   document.body.appendChild(iframe);
   
-  // 获取iframe文档并写入内容
+  // Get iframe document and write content
   const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
   iframeDoc.open();
   iframeDoc.write(`
@@ -26,15 +26,15 @@ export const printElement = (elementId) => {
             margin-top: 0;
             margin-bottom: 0;
           }
-          /* 隐藏页眉和页脚 */
+          /* Hide header and footer */
           @media print {
             html, body { height: 99%; }
             body { margin: 0 !important; padding: 5px !important; }
-            /* 移除浏览器默认添加的页眉页脚 */
+            /* Remove browser default headers and footers */
             html {
               -webkit-print-color-adjust: exact;
             }
-            /* 确保打印时表格不会被截断 */
+            /* Ensure tables aren't truncated when printing */
             table { page-break-inside: auto; }
             tr { page-break-inside: avoid; page-break-after: auto; }
             td { word-wrap: break-word; }
@@ -49,21 +49,21 @@ export const printElement = (elementId) => {
           .divider { border-top: 1px solid #ddd; margin: 8px 0; }
           .footer { text-align: center; margin-top: 15px; font-size: 10px; color: #666; }
           
-          /* Grid布局 */
+          /* Grid layout */
           .MuiGrid-container { display: flex; flex-wrap: wrap; margin: -4px; }
           .MuiGrid-item { flex: 0 0 auto; padding: 4px; box-sizing: border-box; }
           .MuiGrid-grid-xs-3 { flex-basis: 25%; max-width: 25%; }
           .MuiGrid-grid-xs-6 { flex-basis: 50%; max-width: 50%; }
           
-          /* 字体大小 */
+          /* Font sizes */
           .smaller-text { font-size: 10px; }
           .small-text { font-size: 11px; }
           .normal-text { font-size: 12px; }
           
-          /* 公司抬头样式 */
+          /* Company header style */
           h4 { margin-bottom: 3px; color: #333; font-size: 18px; }
           
-          /* 免责声明样式 */
+          /* Disclaimer style */
           .disclaimer-box { 
             border: 1px solid #ddd; 
             padding: 6px; 
@@ -85,7 +85,7 @@ export const printElement = (elementId) => {
             font-weight: bold;
           }
           
-          /* 签名区域样式 */
+          /* Signature area style */
           .signature-line {
             border-top: 1px solid #000;
             width: 150px;
@@ -106,54 +106,54 @@ export const printElement = (elementId) => {
   `);
   iframeDoc.close();
   
-  // 等待iframe加载完成后打印
+  // Wait for iframe to load before printing
   iframe.onload = () => {
-    // 打印
+    // Print
     iframe.contentWindow.focus();
     iframe.contentWindow.print();
     
-    // 在打印对话框关闭后移除iframe
+    // Remove iframe after print dialog closes
     setTimeout(() => {
       document.body.removeChild(iframe);
     }, 500);
   };
 };
 
-// 将DOM元素导出为PDF - 使用后端API
+// Export DOM element as PDF - using backend API
 export const exportToPDF = async (elementId, filename = 'order.pdf') => {
   let loadingToast = null;
   
   try {
-    // 获取订单ID (从URL中获取)
+    // Get order ID (from URL)
     const pathParts = window.location.pathname.split('/');
     const orderId = pathParts[pathParts.length - 1];
     
-    // 确认我们有一个有效的订单ID
+    // Confirm we have a valid order ID
     if (!orderId || isNaN(parseInt(orderId))) {
-      throw new Error('无法获取订单ID');
+      throw new Error('Unable to get order ID');
     }
     
-    // 构建API URL
-    const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8080/api';
+    // Build API URL
+    const apiBaseUrl = process.env.REACT_APP_API_BASE_URL ;
     const url = `${apiBaseUrl}/orders/${orderId}/pdf`;
     
-    // 获取认证令牌
+    // Get authentication token
     const token = localStorage.getItem('token');
     if (!token) {
-      console.warn('未找到认证令牌，可能会导致PDF生成失败');
+      console.warn('Authentication token not found, PDF generation may fail');
     }
     
-    // 创建请求头
+    // Create request headers
     const headers = {
       'Accept': 'application/pdf',
     };
     
-    // 添加认证令牌（如果存在）
+    // Add authentication token (if exists)
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
     
-    // 创建下载状态提示
+    // Create download status notification
     loadingToast = document.createElement('div');
     loadingToast.style.position = 'fixed';
     loadingToast.style.bottom = '20px';
@@ -163,75 +163,75 @@ export const exportToPDF = async (elementId, filename = 'order.pdf') => {
     loadingToast.style.padding = '10px 20px';
     loadingToast.style.borderRadius = '4px';
     loadingToast.style.zIndex = '9999';
-    loadingToast.textContent = '正在生成PDF，请稍候...';
+    loadingToast.textContent = 'Generating PDF, please wait...';
     document.body.appendChild(loadingToast);
     
-    console.log(`发起PDF导出请求: ${url}, 订单ID: ${orderId}`);
-    console.log('请求头:', headers);
+    console.log(`Initiating PDF export request: ${url}, Order ID: ${orderId}`);
+    console.log('Request headers:', headers);
     
     try {
-      // 发起请求获取PDF - 使用fetch API手动处理二进制响应
+      // Make request to get PDF - using fetch API to handle binary response manually
       const response = await fetch(url, {
         method: 'GET',
         headers: headers
       });
       
-      console.log('PDF导出请求响应状态:', response.status, response.statusText);
-      console.log('响应头:', [...response.headers.entries()].map(h => `${h[0]}: ${h[1]}`).join(', '));
+      console.log('PDF export request response status:', response.status, response.statusText);
+      console.log('Response headers:', [...response.headers.entries()].map(h => `${h[0]}: ${h[1]}`).join(', '));
       
       if (!response.ok) {
-        let errorMessage = `状态码: ${response.status} ${response.statusText}`;
+        let errorMessage = `Status code: ${response.status} ${response.statusText}`;
         try {
           const errorText = await response.text();
-          console.error('错误响应内容:', errorText);
+          console.error('Error response content:', errorText);
           errorMessage += ` - ${errorText}`;
         } catch (e) {
-          console.error('无法解析错误响应:', e);
+          console.error('Unable to parse error response:', e);
         }
-        throw new Error(`导出PDF失败: ${errorMessage}`);
+        throw new Error(`PDF export failed: ${errorMessage}`);
       }
       
-      // 获取PDF数据 - 明确使用arrayBuffer()而不是blob()
+      // Get PDF data - explicitly use arrayBuffer() instead of blob()
       const arrayBuffer = await response.arrayBuffer();
-      console.log('获取到ArrayBuffer数据大小:', arrayBuffer.byteLength, '字节');
+      console.log('Received ArrayBuffer data size:', arrayBuffer.byteLength, 'bytes');
       
       if (arrayBuffer.byteLength === 0) {
-        throw new Error('导出的PDF文件大小为0，可能是生成失败');
+        throw new Error('Exported PDF file size is 0, generation may have failed');
       }
       
-      // 创建Blob对象 - 明确指定MIME类型
+      // Create Blob object - explicitly specify MIME type
       const blob = new Blob([arrayBuffer], { type: 'application/pdf' });
-      console.log('创建Blob对象:', blob.size, '字节, 类型:', blob.type);
+      console.log('Created Blob object:', blob.size, 'bytes, type:', blob.type);
       
-      // 移除加载提示
+      // Remove loading notification
       if (document.body.contains(loadingToast)) {
         document.body.removeChild(loadingToast);
         loadingToast = null;
       }
       
-      // 创建下载链接
+      // Create download link
       const downloadUrl = window.URL.createObjectURL(blob);
       
-      // 下载或预览PDF
+      // Download or preview PDF
       const a = document.createElement('a');
       a.style.display = 'none';
       a.href = downloadUrl;
       a.download = filename || `order-${orderId}.pdf`;
       
-      // 触发下载
+      // Trigger download
       document.body.appendChild(a);
       a.click();
       
-      // 清理资源
+      // Clean up resources
       setTimeout(() => {
         window.URL.revokeObjectURL(downloadUrl);
         document.body.removeChild(a);
       }, 200);
       
-      console.log('PDF下载已启动');
+      console.log('PDF download initiated');
       
     } catch (error) {
-      // 移除加载提示(如果还存在)
+      // Remove loading notification (if still exists)
       if (document.body.contains(loadingToast)) {
         document.body.removeChild(loadingToast);
         loadingToast = null;
@@ -240,14 +240,14 @@ export const exportToPDF = async (elementId, filename = 'order.pdf') => {
       throw error;
     }
   } catch (error) {
-    console.error('导出PDF时出错:', error);
+    console.error('Error exporting PDF:', error);
     
-    // 确保加载提示被移除
+    // Ensure loading notification is removed
     if (loadingToast && document.body.contains(loadingToast)) {
       document.body.removeChild(loadingToast);
     }
     
-    // 显示友好错误信息
-    alert(`导出PDF失败: ${error.message}`);
+    // Show friendly error message
+    alert(`PDF export failed: ${error.message}`);
   }
 };
