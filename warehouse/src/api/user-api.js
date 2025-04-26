@@ -13,7 +13,7 @@ export const login = async (username, password, captchaToken = null) => {
       requestBody.captchaToken = captchaToken;
     }
     
-    const response = await axios.post(`${API_BASE_URL}/users`, requestBody);
+    const response = await instance.post('/users', requestBody);
     return response.data;
   } catch (error) {
     return handleError(error, 'Login failed');
@@ -23,7 +23,7 @@ export const login = async (username, password, captchaToken = null) => {
 // Register request
 export const signup = async (username, password) => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/users?action=register`, { username, password });
+    const response = await instance.post('/users?action=register', { username, password });
     return response.data;
   } catch (error) {
     return handleError(error, 'Register failed');
