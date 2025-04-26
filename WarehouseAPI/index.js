@@ -27,7 +27,9 @@ app.use(cors());
 app.use(express.json());
 app.set('trust proxy', 'loopback, linklocal, uniquelocal');
 
-
+app.get('/', (req, res) => {
+  res.status(200).send('Warehouse API is running');
+});
 // 路由
 app.use('/api/users', logger, usersRouter); // 用户路由需要添加日志记录，但不需要默认认证
 
