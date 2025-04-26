@@ -22,4 +22,4 @@ export const DATE_FORMAT = 'YYYY-MM-DD';
 export const DATETIME_FORMAT = 'YYYY-MM-DD HH:mm:ss'; 
 
 // reCAPTCHA sitekey (use Vite environment variable)
-export const RECAPTCHA_SITE_KEY = '6Le6jCUrAAAAADGlMj2V6rAl9pdQmF6to0S351K7';
+export const RECAPTCHA_SITE_KEY = '6LfnjyUrAAAAAGR6DWUvFYq0j3eqRf3tmc0aV7BD';
