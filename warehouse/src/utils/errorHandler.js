@@ -9,7 +9,7 @@ export const handleError = (error, defaultMessage, defaultData = {}) => {
   const isDev = process.env.REACT_APP_ENV === 'development';
   
   if (error.response && error.response.data) {
-    // 检查是否为密码相关错误，如果是则始终显示详细信息并增强提示
+    // 检查是否为密码相关错误或导入相关错误，如果是则始终显示详细信息
     let errorMsg = error.response.data.msg || defaultMessage;
     
     // 增强密码错误提示，显示允许的特殊字符
@@ -18,11 +18,19 @@ export const handleError = (error, defaultMessage, defaultData = {}) => {
         errorMsg.includes('Password is invalid')) {
       errorMsg = 'Password does not meet strength requirements: minimum 8 characters with at least one letter, one number, and one special character (@$!%*?&)';
     }
+
+    // 始终显示导入相关的错误信息
+    const isImportError = defaultMessage.includes('import') || 
+                         defaultMessage.includes('导入') ||
+                         errorMsg.includes('Row') ||
+                         errorMsg.includes('行');
     
     return {
       success: error.response.data.success || false,
-      // 如果是密码错误或在开发环境中，显示详细信息
-      msg: errorMsg.includes('密码') || errorMsg.includes('Password') ? 
+      // 如果是密码错误、导入错误或在开发环境中，显示详细信息
+      msg: errorMsg.includes('密码') || 
+           errorMsg.includes('Password') || 
+           isImportError ? 
            errorMsg : 
            (isDev ? errorMsg : defaultMessage),
       status: error.response.status,
@@ -31,12 +39,16 @@ export const handleError = (error, defaultMessage, defaultData = {}) => {
     };
   }
 
+  // 对于网络错误，如果是导入相关的错误，也显示详细信息
+  const isImportError = defaultMessage.includes('import') || defaultMessage.includes('导入');
   return {
     success: false,
-    msg: isDev ? 'Internet error: ' + (error.message || '') : 'Network error', // 生产环境隐藏具体错误信息
+    msg: isImportError ? 
+        (error.message || defaultMessage) : 
+        (isDev ? 'Internet error: ' + (error.message || '') : 'Network error'),
     status: 0,
-    debug: isDev ? error : undefined, // 仅在开发模式下返回完整错误对象
-    ...defaultData // 添加默认数据
+    debug: isDev ? error : undefined,
+    ...defaultData
   };
 };
   
