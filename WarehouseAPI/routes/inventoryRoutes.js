@@ -180,7 +180,7 @@ router.post('/import', authMiddleware, checkInventoryPermission, async (req, res
       if (isNaN(qty) || qty < 0) {
         return res.status(400).json({ success: false, msg: `Row ${idx+1} - invalid quantity field` });
       }
-      if (density !== '' && density !== undefined) {
+      if (density !== null && density !== undefined && density !== '') {
         const den = parseFloat(density);
         if (isNaN(den) || den < 0) {
           return res.status(400).json({ success: false, msg: `Row ${idx+1} - invalid density field` });
