@@ -36,6 +36,13 @@ const Layout = () => {
   return (
     <>
       <Routes>
+        {/* 管理员专属路由 */}
+        <Route element={<AdminRoutes />}>   
+          <Route path="/employee" element={<EmployeePage/>} />
+          <Route path="/employee/:id" element={<EmployeeDetailPage/>} />
+          <Route path="/profile" element={<ProfilePage/>} />
+        </Route>
+
         {/* 所有受保护的路由在 ProtectedRoutes 下 */}
         <Route element={<ProtectedRoutes />}>
           {/* 登录后的公共布局（包含 Header 和内容区域） */}
@@ -57,12 +64,7 @@ const Layout = () => {
             <Route path="/order/:orderId" element={<OrderDetailPage/>} />
             <Route path="/edit-order/:orderId" element={<EditOrderPage/>} />
             <Route path="/create-order" element={<CreateOrderPage/>} />
-            <Route path="/profile" element={<ProfilePage/>} />
-            {/* 管理员专属路由 */}
-            <Route element={<AdminRoutes />}>   
-              <Route path="/employee" element={<EmployeePage/>} />
-              <Route path="/employee/:id" element={<EmployeeDetailPage/>} />
-            </Route>
+            
           </Route>
         </Route>   
         {/* 无需登录的路由 */}
