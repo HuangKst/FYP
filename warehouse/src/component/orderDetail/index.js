@@ -39,7 +39,7 @@ const getCurrentUser = () => {
 // 检查用户是否有权限删除订单
 const hasDeletePermission = (user) => {
     if (!user) return false;
-    return user.role === 'admin' || user.role === 'boss';
+    return user.userRole === 'admin' || user.userRole === 'boss';
 };
 
 const OrderDetail = ({ orderId, open, onClose, onStatusChange }) => {
@@ -51,7 +51,7 @@ const OrderDetail = ({ orderId, open, onClose, onStatusChange }) => {
     const [remark, setRemark] = useState('');
     const [deleteConfirm, setDeleteConfirm] = useState(false);
     const [error, setError] = useState('');
-    
+
     // 获取当前用户
     const currentUser = getCurrentUser();
     // 检查是否有删除权限
@@ -61,17 +61,17 @@ const OrderDetail = ({ orderId, open, onClose, onStatusChange }) => {
     useEffect(() => {
         const loadOrderDetail = async () => {
             if (!orderId) return;
-            
+
             setLoading(true);
             try {
                 const response = await fetchOrderById(orderId);
                 console.log('完整的订单详情数据:', response); // 添加详细的日志
                 console.log('用户信息:', response.order?.user); // 查看用户信息
-                console.log('客户信息:', response.order?.customer); // 查看客户信息
+                console.log('Customer Information:', response.order?.customer); // 查看客户信息
                 if (response.success && response.order) {
                     // 确保订单项数据正确格式化
                     let orderData = response.order;
-                    
+
                     // 检查OrderItems的字段名（可能是OrderItems而不是order_items）
                     if (!orderData.order_items && orderData.OrderItems) {
                         orderData = {
@@ -79,7 +79,7 @@ const OrderDetail = ({ orderId, open, onClose, onStatusChange }) => {
                             order_items: orderData.OrderItems
                         };
                     }
-                    
+
                     console.log('Processed order data:', orderData); // 添加调试日志
                     setOrder(orderData);
                     // 确保状态值与数据库中的tinyint类型保持一致（1表示true，0表示false）
@@ -100,7 +100,7 @@ const OrderDetail = ({ orderId, open, onClose, onStatusChange }) => {
     // 更新订单状态
     const handleUpdateStatus = async () => {
         if (!order) return;
-        
+
         setUpdating(true);
         try {
             const response = await updateOrderStatus(orderId, {
@@ -108,7 +108,7 @@ const OrderDetail = ({ orderId, open, onClose, onStatusChange }) => {
                 is_completed: isCompleted ? 1 : 0,
                 remark
             });
-            
+
             if (response.success) {
                 // 通知父组件状态已更新，刷新订单列表
                 if (onStatusChange) onStatusChange();
@@ -125,14 +125,14 @@ const OrderDetail = ({ orderId, open, onClose, onStatusChange }) => {
     // 删除订单
     const handleDeleteOrder = async () => {
         if (!order) return;
-        
+
         // 再次检查权限
         if (!canDelete) {
-            setError('您没有权限删除订单。只有管理员才能执行此操作。');
+            setError('You do not have permission to delete orders. Only administrators can perform this action.');
             setDeleteConfirm(false);
             return;
         }
-        
+
         setUpdating(true);
         setError('');
         try {
@@ -143,11 +143,11 @@ const OrderDetail = ({ orderId, open, onClose, onStatusChange }) => {
                 // 关闭对话框
                 onClose();
             } else {
-                setError(response.msg || '删除订单失败');
+                setError(response.msg || 'Failed to delete order');
             }
         } catch (error) {
             console.error('Error deleting order:', error);
-            setError('删除订单时发生错误');
+            setError('Error deleting order');
         } finally {
             setUpdating(false);
             setDeleteConfirm(false);
@@ -172,7 +172,7 @@ const OrderDetail = ({ orderId, open, onClose, onStatusChange }) => {
             <DialogTitle>
                 {loading ? 'Loading order details...' : `Order Details: ${order?.order_number || ''}`}
             </DialogTitle>
-            
+
             <DialogContent>
                 {loading ? (
                     <div style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}>
@@ -194,9 +194,9 @@ const OrderDetail = ({ orderId, open, onClose, onStatusChange }) => {
                                     <Typography variant="subtitle2" component="div">Order Type</Typography>
                                     <Typography component="div">
                                         {order.order_type === 'QUOTE' ? 'Quote' : 'Sales'}
-                                        <Chip 
-                                            size="small" 
-                                            label={order.order_type === 'QUOTE' ? 'Quote' : 'Sales'} 
+                                        <Chip
+                                            size="small"
+                                            label={order.order_type === 'QUOTE' ? 'Quote' : 'Sales'}
                                             color={order.order_type === 'QUOTE' ? 'info' : 'primary'}
                                             style={{ marginLeft: '8px' }}
                                         />
@@ -237,16 +237,16 @@ const OrderDetail = ({ orderId, open, onClose, onStatusChange }) => {
                                     <>
                                         <Grid item xs={12} sm={6}>
                                             <Typography variant="subtitle2" component="div">Payment Status</Typography>
-                                            <Chip 
-                                                label={order.is_paid ? 'Paid' : 'Unpaid'} 
-                                                color={order.is_paid ? 'success' : 'error'} 
+                                            <Chip
+                                                label={order.is_paid ? 'Paid' : 'Unpaid'}
+                                                color={order.is_paid ? 'success' : 'error'}
                                             />
                                         </Grid>
                                         <Grid item xs={12} sm={6}>
                                             <Typography variant="subtitle2" component="div">Completion Status</Typography>
-                                            <Chip 
-                                                label={order.is_completed ? 'Completed' : 'Pending'} 
-                                                color={order.is_completed ? 'success' : 'warning'} 
+                                            <Chip
+                                                label={order.is_completed ? 'Completed' : 'Pending'}
+                                                color={order.is_completed ? 'success' : 'warning'}
                                             />
                                         </Grid>
                                     </>
@@ -352,9 +352,9 @@ const OrderDetail = ({ orderId, open, onClose, onStatusChange }) => {
                         <Button onClick={() => setDeleteConfirm(false)} disabled={updating}>
                             Cancel
                         </Button>
-                        <Button 
-                            onClick={handleDeleteOrder} 
-                            color="error" 
+                        <Button
+                            onClick={handleDeleteOrder}
+                            color="error"
                             disabled={updating}
                         >
                             {updating ? 'Deleting...' : 'Confirm Delete'}
@@ -362,6 +362,7 @@ const OrderDetail = ({ orderId, open, onClose, onStatusChange }) => {
                     </>
                 ) : (
                     <>
+                        {console.log('currentUser:', currentUser, 'canDelete:', canDelete, 'order:', order)}
                         {canDelete && (
                             <Button onClick={() => setDeleteConfirm(true)} color="error" disabled={updating || loading || !order}>
                                 Delete Order
@@ -371,9 +372,9 @@ const OrderDetail = ({ orderId, open, onClose, onStatusChange }) => {
                             Close
                         </Button>
                         {order && order.order_type === 'SALES' && (
-                            <Button 
-                                onClick={handleUpdateStatus} 
-                                color="primary" 
+                            <Button
+                                onClick={handleUpdateStatus}
+                                color="primary"
                                 variant="contained"
                                 disabled={updating || loading}
                             >
