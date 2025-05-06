@@ -39,7 +39,7 @@ const getCurrentUser = () => {
 // 检查用户是否有权限删除订单
 const hasDeletePermission = (user) => {
     if (!user) return false;
-    return user.role === 'admin' || user.role === 'superadmin';
+    return user.role === 'admin' || user.role === 'boss';
 };
 
 const OrderDetail = ({ orderId, open, onClose, onStatusChange }) => {
