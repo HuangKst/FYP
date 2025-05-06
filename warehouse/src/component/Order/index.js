@@ -73,7 +73,7 @@ const hasDeletePermission = (user, order) => {
     if (!user) return false;
     
     // 管理员有权限删除所有订单
-    if (user.userRole === 'admin') {
+    if (user.userRole === 'admin'|| user.userRole === 'boss') {
         return true;
     }
     
