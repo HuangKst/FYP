@@ -78,7 +78,7 @@ const EditOrderPage = () => {
     useEffect(() => {
         const loadInitialData = async () => {
             if (!canEdit) {
-                setError('您没有权限编辑订单。只有管理员或老板才能执行此操作。');
+                setError('You do not have permission to edit the order. Only administrators or the boss can perform this action.');
                 return;
             }
             
@@ -109,7 +109,7 @@ const EditOrderPage = () => {
                         })));
                     }
                 } else {
-                    setError('无法加载订单数据');
+                    setError('Error loading order data');
                     return;
                 }
                 
@@ -126,7 +126,7 @@ const EditOrderPage = () => {
                 }
             } catch (error) {
                 console.error('Error loading data:', error);
-                setError('加载数据时发生错误');
+                setError('Error loading data');
             } finally {
                 setLoading(false);
             }
@@ -210,12 +210,12 @@ const EditOrderPage = () => {
     const handleSubmit = async () => {
         // 基本验证
         if (!customerId) {
-            setError('请选择客户');
+            setError('Please select a customer');
             return;
         }
         
         if (orderItems.some(item => !item.material || !item.specification || !item.quantity || !item.unit_price)) {
-            setError('请完成所有订单项的必填信息');
+            setError('Please complete all required information for each order item');
             return;
         }
         
@@ -242,7 +242,7 @@ const EditOrderPage = () => {
                         if (quantityDiff > 0) {
                             const availableStock = parseFloat(inventoryItem.quantity);
                             if (quantityDiff > availableStock) {
-                                setError(`商品 ${item.material} (${item.specification}) 库存不足，当前库存: ${availableStock}`);
+                                setError(`The product ${item.material} (${item.specification}) is out of stock, current stock: ${availableStock}`);
                                 setSubmitting(false);
                                 return;
                             }
@@ -275,11 +275,11 @@ const EditOrderPage = () => {
                 // 更新成功，返回订单详情页
                 navigate(`/order/${orderId}`);
             } else {
-                setError(response.msg || '更新订单失败');
+                setError(response.msg || 'Failed to update the order');
             }
         } catch (error) {
             console.error('Error updating order:', error);
-            setError('更新订单时发生错误');
+            setError('Error updating the order');
         } finally {
             setSubmitting(false);
         }
@@ -290,9 +290,9 @@ const EditOrderPage = () => {
         return (
             <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
                 <Paper sx={{ p: 2 }}>
-                    <Alert severity="error">您没有权限编辑订单。只有管理员或老板才能执行此操作。</Alert>
+                    <Alert severity="error">You do not have permission to edit the order. Only administrators or the boss can perform this action.</Alert>
                     <Button sx={{ mt: 2 }} variant="outlined" onClick={() => navigate(`/order/${orderId}`)}>
-                        返回订单详情
+                        Return to order details
                     </Button>
                 </Paper>
             </Container>
