@@ -1,4 +1,4 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useRef } from "react";
 import { AuthContext } from "../contexts/authContext";
 import { useNavigate, Link } from "react-router-dom";
 import { Box, TextField, Button, Typography, Alert, Paper } from "@mui/material";
@@ -29,6 +29,7 @@ export default function LoginPage() {
   const [showCaptcha, setShowCaptcha] = useState(false);
   const [loginAttempts, setLoginAttempts] = useState(0);
   const siteKey = RECAPTCHA_SITE_KEY;
+  const recaptchaRef = useRef(null);
 
   // Function to handle CAPTCHA change
   const handleCaptchaChange = (value) => {
@@ -50,6 +51,10 @@ export default function LoginPage() {
     console.log("Login result:", result);
     
     if (result.success) {
+      setShowCaptcha(false);
+      if (recaptchaRef.current) {
+        recaptchaRef.current.reset();
+      }
       console.log("Navigating to home");
       navigate("/home");
     } else {
@@ -68,11 +73,11 @@ export default function LoginPage() {
         setError(result.msg || "Login failed");
       }
       
-      // Reset CAPTCHA
-      if (captchaValue) {
-        setCaptchaValue(null);
-        // If we have a recaptcha ref, we could reset it here
+      // 登录失败时重置 CAPTCHA
+      if (recaptchaRef.current) {
+        recaptchaRef.current.reset();
       }
+      setCaptchaValue(null);
     }
   };
 
@@ -186,6 +191,7 @@ export default function LoginPage() {
               marginY: 2 
             }}>
               <ReCAPTCHA
+                ref={recaptchaRef}
                 sitekey={siteKey}
                 onChange={handleCaptchaChange}
               />

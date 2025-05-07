@@ -9,9 +9,24 @@ export const handleError = (error, defaultMessage, defaultData = {}) => {
   const isDev = process.env.REACT_APP_ENV === 'development';
   
   if (error.response && error.response.data) {
-    // 检查是否为密码相关错误或导入相关错误，如果是则始终显示详细信息
     let errorMsg = error.response.data.msg || defaultMessage;
     
+    // 新增：如果是登录相关的错误，直接显示后端msg（如验证码、锁定、密码等）
+    if (
+      defaultMessage.toLowerCase().includes('login') ||
+      errorMsg.toLowerCase().includes('captcha') ||
+      errorMsg.toLowerCase().includes('lock') ||
+      errorMsg.toLowerCase().includes('password')
+    ) {
+      return {
+        success: error.response.data.success || false,
+        msg: errorMsg, // 直接显示后端msg
+        status: error.response.status,
+        debug: isDev ? error.response.data : undefined,
+        ...defaultData
+      };
+    }
+
     // 增强密码错误提示，显示允许的特殊字符
     if (errorMsg.includes('Password does not meet strength requirements') || 
         errorMsg.includes('密码') || 
